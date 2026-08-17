@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="theme-color" content="#4f46e5">
+<title>Create Teacher — KahootLive Admin</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;width:100%;min-height:100%}
+body{min-height:100vh;display:flex;flex-direction:column;background:#f5f7fb;font-family:Roboto,Arial,sans-serif;color:#111827}
+.content-wrapper{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 20px}
+.form-container{width:100%;max-width:450px}
+.form-card{width:100%;background:#fff;border-radius:18px;padding:32px 24px;box-shadow:0 8px 30px rgba(0,0,0,.08)}
+.form-title{margin:0 0 8px;text-align:center;font-size:24px;font-weight:700}
+.form-subtitle{margin:0 0 24px;text-align:center;color:#6b7280;font-size:14px}
+.form-group{margin-bottom:18px}
+.form-label{display:block;margin-bottom:7px;font-size:14px;font-weight:600;color:#374151}
+.form-input{width:100%;height:48px;padding:0 14px;border:1px solid #d1d5db;border-radius:11px;outline:none;background:#fff;color:#111827;font-size:15px;font-family:inherit}
+.form-input:focus{border-color:#4f46e5;box-shadow:0 0 0 3px rgba(79,70,229,.12)}
+.submit-button{width:100%;height:48px;margin-top:8px;border:0;border-radius:11px;background:#4f46e5;color:#fff;font-family:inherit;font-size:15px;font-weight:600;cursor:pointer}
+.submit-button:active{transform:scale(.98)}
+.submit-button:disabled{opacity:.6;cursor:not-allowed}
+.alert-message{display:none;margin-bottom:16px;padding:12px 14px;border-radius:9px;font-size:13px;line-height:1.4}
+.alert-message.error{display:block;background:#fef2f2;color:#b91c1c}
+.alert-message.success{display:block;background:#f0fdf4;color:#15803d}
+@media(max-width:480px){.content-wrapper{padding:20px 14px}.form-card{padding:24px 18px}}
+</style>
+</head>
+<body>
+
+<main class="content-wrapper">
+<div class="form-container">
+<section class="form-card">
+<h1 class="form-title">Create Teacher Account</h1>
+<p class="form-subtitle">Add a new teacher to KahootLive system</p>
+
+<div id="form-alert" class="alert-message"></div>
+
+<form id="create-teacher-form">
+<div class="form-group">
+<label class="form-label" for="teacher-name">Full Name</label>
+<input id="teacher-name" class="form-input" type="text" placeholder="Teacher full name" required>
+</div>
+
+<div class="form-group">
+<label class="form-label" for="teacher-email">Email Address</label>
+<input id="teacher-email" class="form-input" type="email" autocomplete="email" placeholder="Teacher email" required>
+</div>
+
+<div class="form-group">
+<label class="form-label" for="teacher-password">Temporary Password</label>
+<input id="teacher-password" class="form-input" type="password" autocomplete="new-password" placeholder="At least 6 characters" required>
+</div>
+
+<button id="submit-btn" class="submit-button" type="submit">Create Teacher</button>
+</form>
+</section>
+</div>
+</main>
+
+<script type="module">
+let appCore;
+try {
+    appCore = await import("../shared/app-core.js");
+} catch (error) {
+    console.error(error);
+}
+
+const dbInstance = appCore?.db || appCore?.kahootDb;
+const authInstance = appCore?.auth;
+
+const {
+    createUserWithEmailAndPassword,
+    doc,
+    setDoc,
+    serverTimestamp,
+    requireAdmin,
+    createHeader,
+    createFooter
+} = appCore || {};
+
+if (typeof createHeader === "function") {
+    try {
+        createHeader();
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+if (typeof createFooter === "function") {
+    try {
+        createFooter();
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+if (typeof requireAdmin === "function") {
+    try {
+        await requireAdmin();
+    } catch (e) {
+        window.location.replace("admin-login.html");
+    }
+}
+
+const form = document.getElementById("create-teacher-form");
+const nameInput = document.getElementById("teacher-name");
+const emailInput = document.getElementById("teacher-email");
+const passwordInput = document.getElementById("teacher-password");
+const submitBtn = document.getElementById("submit-btn");
+const alertBox = document.getElementById("form-alert");
+
+function showAlert(message, type = "error") {
+    alertBox.textContent = message;
+    alertBox.className = `alert-message ${type}`;
+}
+
+function clearAlert() {
+    alertBox.textContent = "";
+    alertBox.className = "alert-message";
+}
+
+form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    clearAlert();
+
+    const name = nameInput.value.trim();
+    const email = emailInput.value.trim();
+    const password = passwordInput.value;
+
+    if (!name || !email || !password) {
+        showAlert("Please fill in all fields.");
+        return;
+    }
+
+    if (password.length < 6) {
+        showAlert("Password must be at least 6 characters long.");
+        return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Creating account...";
+
+    try {
+        const userCredential = await createUserWithEmailAndPassword(authInstance, email, password);
+        const user = userCredential.user;
+
+        await setDoc(doc(dbInstance, "teachers", user.uid), {
+            uid: user.uid,
+            name: name,
+            email: email,
+            role: "teacher",
+            createdAt: serverTimestamp()
+        });
+
+        showAlert("Teacher account created successfully!", "success");
+        form.reset();
+    } catch (error) {
+        console.error("Error creating teacher:", error);
+        let msg = "Failed to create teacher account.";
+        if (error.code === "auth/email-already-in-use") {
+            msg = "This email address is already in use.";
+        } else if (error.code === "auth/invalid-email") {
+            msg = "Invalid email address format.";
+        } else if (error.message) {
+            msg = error.message;
+        }
+        showAlert(msg, "error");
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Create Teacher";
+    }
+});
+</script>
+</body>
+</html>
+

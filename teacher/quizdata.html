@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="theme-color" content="#4f46e5">
+<title>Sync Quizzes from ClassHQC — KahootLive</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;width:100%;min-height:100%}
+body{min-height:100vh;display:flex;flex-direction:column;background:#f8fafc;font-family:Roboto,Arial,sans-serif;color:#1e293b}
+.sync-wrapper{flex:1;display:flex;flex-direction:column;padding:24px 16px;max-width:700px;width:100%;margin:0 auto}
+.sync-header{margin-bottom:20px;text-align:center}
+.sync-header h1{margin:0 0 8px;font-size:26px;font-weight:800;color:#dc2626}
+.sync-header p{margin:0;color:#64748b;font-size:16px;font-weight:500;line-height:1.4}
+.sync-actions{display:flex;gap:12px;margin-bottom:20px;justify-content:center;flex-wrap:wrap}
+.action-btn{flex:1;min-width:140px;border:0;border-radius:14px;padding:16px 20px;background:#4f46e5;color:#fff;font-family:inherit;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(79,70,229,0.2);text-decoration:none;display:inline-flex;align-items:center;justify-content:center;transition:transform 0.1s}
+.action-btn:active{transform:scale(.97)}
+.action-btn:disabled{opacity:.6;cursor:not-allowed;box-shadow:none}
+.action-btn-secondary{background:#64748b;box-shadow:0 4px 12px rgba(100,116,139,0.2)}
+
+/* Attractive Filter Block Layout */
+.filters-wrapper{background:#ffffff;border:2px solid #e2e8f0;border-radius:20px;padding:20px;margin-bottom:24px;box-shadow:0 8px 24px rgba(0,0,0,.04)}
+.filters-title{font-size:16px;font-weight:800;color:#0f172a;margin:0 0 14px;display:flex;align-items:center;gap:8px}
+.filters-container{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media(max-width:650px){.filters-container{grid-template-columns:1fr}}
+.filter-group{background:#f8fafc;padding:12px 14px;border-radius:14px;border:1px solid #cbd5e1;transition:all 0.2s}
+.filter-group:hover{border-color:#4f46e5;background:#fff}
+.filter-group label{display:block;margin-bottom:6px;font-size:14px;font-weight:800;color:#334155;letter-spacing:0.2px}
+.filter-select{width:100%;padding:12px;border:2px solid #cbd5e1;border-radius:10px;font-size:15px;font-weight:700;font-family:inherit;color:#0f172a;background:#fff;outline:none;cursor:pointer;transition:border-color 0.2s}
+.filter-select:focus{border-color:#4f46e5;box-shadow:0 0 0 3px rgba(79,70,229,0.15)}
+
+/* Progress Bar Styles */
+.progress-container {display:none;margin-bottom:20px;background:#ffffff;padding:16px;border-radius:14px;box-shadow:0 4px 16px rgba(0,0,0,.05);border:1px solid #e2e8f0;}
+.progress-container.active {display:block;}
+.progress-info {display:flex;justify-content:space-between;font-size:15px;font-weight:700;color:#1e293b;margin-bottom:8px;}
+.progress-bar-bg {width:100%;height:12px;background:#f1f5f9;border-radius:6px;overflow:hidden;}
+.progress-bar-fill {width:0%;height:100%;background:#4f46e5;border-radius:6px;transition:width 0.3s ease;}
+
+.status-message{display:none;margin-bottom:20px;padding:16px 18px;border-radius:12px;font-size:16px;font-weight:700;line-height:1.4;text-align:center}
+.status-message.error{display:block;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5}
+.status-message.success{display:block;background:#dcfce7;color:#166534;border:1px solid #86efac}
+.status-message.info{display:block;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe}
+
+.quiz-list{display:flex;flex-direction:column;gap:16px;margin-bottom:24px}
+.quiz-item{background:#ffffff;border-radius:18px;padding:20px;box-shadow:0 6px 24px rgba(0,0,0,.06);display:flex;flex-direction:column;gap:16px;border:1px solid #e2e8f0;color:#1e293b}
+.quiz-info h3{margin:0 0 6px;font-size:20px;font-weight:800;color:#0f172a}
+.quiz-info p{margin:0;color:#64748b;font-size:14px;font-weight:600}
+.quiz-details-grid {display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; width: 100%; font-size: 15px; color:#334155; background: #f8fafc; padding: 14px; border-radius: 12px; border: 1px solid #e2e8f0; }
+.quiz-details-grid div{font-weight:600}
+.quiz-meta-badge{display:inline-block;padding:6px 12px;border-radius:8px;font-size:13px;font-weight:700;background:#f1f5f9;color:#64748b}
+.quiz-meta-badge.synced{background:#dcfce7;color:#166534}
+
+.quiz-actions-group{display:flex;gap:10px;flex-wrap:wrap}
+
+.play-kahoot-btn{flex:1;min-width:130px;border:0;border-radius:12px;padding:14px;background:#2563eb;color:#fff;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(37,99,235,0.2);text-decoration:none;display:inline-block;text-align:center}
+.play-kahoot-btn:active{transform:scale(.98)}
+
+.play-spelling-btn{flex:1;min-width:130px;border:0;border-radius:12px;padding:14px;background:#16a34a;color:#fff;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(22,163,74,0.2);text-decoration:none;display:inline-block;text-align:center}
+.play-spelling-btn:active{transform:scale(.98)}
+
+.sync-single-btn{flex:1;min-width:130px;border:0;border-radius:12px;padding:14px;background:#4f46e5;color:#fff;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(79,70,229,0.2);text-decoration:none;display:inline-block;text-align:center}
+.sync-single-btn:active{transform:scale(.98)}
+</style>
+</head>
+<body>
+
+<main class="sync-wrapper">
+<div class="sync-header">
+<h1>Sync ClassHQC Quizzes</h1>
+<p>Import and synchronize quiz names, PINs, games, and questions seamlessly.</p>
+</div>
+
+<div class="sync-actions">
+<a href="sync-quiz-manager.html" target="_blank" id="sync-all-btn" class="action-btn">Sync</a>
+<button type="button" id="refresh-btn" class="action-btn action-btn-secondary">Refresh / Load Quizzes</button>
+</div>
+
+<!-- Attractive Filter Block Layout -->
+<div class="filters-wrapper">
+<div class="filters-title">🔍 Filter Quizzes</div>
+<div class="filters-container">
+<div class="filter-group">
+<label for="filter-grade">Grade</label>
+<select id="filter-grade" class="filter-select">
+<option value="all">All Grades</option>
+</select>
+</div>
+<div class="filter-group">
+<label for="filter-skill">Skill</label>
+<select id="filter-skill" class="filter-select">
+<option value="all">All Skills</option>
+</select>
+</div>
+<div class="filter-group">
+<label for="filter-unit">Unit</label>
+<select id="filter-unit" class="filter-select">
+<option value="all">All Units</option>
+</select>
+</div>
+</div>
+</div>
+
+<!-- Live Progress Bar Component -->
+<div id="progress-container" class="progress-container">
+<div class="progress-info">
+<span id="progress-text">Processing...</span>
+<span id="progress-percentage">0%</span>
+</div>
+<div class="progress-bar-bg">
+<div id="progress-bar-fill" class="progress-bar-fill"></div>
+</div>
+</div>
+
+<div id="status-box" class="status-message"></div>
+
+<div id="quiz-list" class="quiz-list">
+<div class="quiz-item" style="justify-content:center;align-items:center;color:#64748b;font-weight:700;padding:30px;text-align:center;">Click "Refresh / Load Quizzes" to view available quizzes.</div>
+</div>
+</main>
+
+<script type="module">
+import { 
+    initAppCore, 
+    requireTeacher, 
+    db, 
+    collection, 
+    getDocs, 
+    doc, 
+    getDoc 
+} from "../shared/app-core.js";
+
+// Initialize App Core (automatically injects Header & Footer)
+await initAppCore();
+
+// Enforce teacher access role using App Core rules
+requireTeacher();
+
+const statusBox = document.getElementById("status-box");
+const quizListContainer = document.getElementById("quiz-list");
+const refreshBtn = document.getElementById("refresh-btn");
+
+const filterGrade = document.getElementById("filter-grade");
+const filterSkill = document.getElementById("filter-skill");
+const filterUnit = document.getElementById("filter-unit");
+
+function showStatus(message, type = "info") {
+    statusBox.textContent = message;
+    statusBox.className = `status-message ${type}`;
+}
+
+let quizzesCache = null;
+
+async function loadQuizzes(forceRefresh = false) {
+    if (quizzesCache && !forceRefresh) {
+        populateFilterDropdowns(quizzesCache);
+        renderQuizzes(quizzesCache);
+        showStatus(`Loaded ${quizzesCache.length} quizzes from memory cache.`, "success");
+        return;
+    }
+
+    showStatus("Fetching local quizzes from KahootLive metadata and questions...", "info");
+    quizListContainer.innerHTML = `<div class="quiz-item" style="justify-content:center;align-items:center;color:#64748b;font-weight:700;padding:30px;text-align:center;">Loading local quizzes...</div>`;
+    refreshBtn.disabled = true;
+
+    try {
+        const metaSnapshot = await getDocs(collection(db, "quiz_metadata"));
+        const quizzes = [];
+
+        metaSnapshot.forEach(metaDoc => {
+            quizzes.push({
+                id: metaDoc.id,
+                ...metaDoc.data()
+            });
+        });
+
+        if (quizzes.length === 0) {
+            quizListContainer.innerHTML = `<div class="quiz-item" style="justify-content:center;align-items:center;color:#64748b;font-weight:700;padding:30px;text-align:center;">No local quizzes found in metadata.</div>`;
+            showStatus("No local quizzes found.", "info");
+            quizzesCache = [];
+            refreshBtn.disabled = false;
+            return;
+        }
+
+        for (const quiz of quizzes) {
+            let questionCount = "Unknown";
+            try {
+                const qSnap = await getDoc(doc(db, "quiz_questions", quiz.id));
+                if (qSnap.exists()) {
+                    const qData = qSnap.data();
+                    if (Array.isArray(qData.questions)) {
+                        questionCount = qData.questions.length;
+                    } else if (qData && typeof qData === "object") {
+                        const foundArr = Object.values(qData).find(val => Array.isArray(val));
+                        if (foundArr) {
+                            questionCount = foundArr.length;
+                        }
+                    }
+                }
+            } catch (e) {}
+
+            if (questionCount === "Unknown" && quiz.questionCount !== undefined) {
+                questionCount = quiz.questionCount;
+            }
+            quiz.resolvedQuestionCount = questionCount;
+
+            quiz.resolvedGrade = String(quiz.gradeName || quiz.gradeId || "N/A").trim();
+            quiz.resolvedSkill = String(quiz.skillName || quiz.skillId || "N/A").trim();
+            quiz.resolvedUnit = String(quiz.unitName || quiz.unit || "N/A").trim();
+        }
+
+        quizzesCache = quizzes;
+        populateFilterDropdowns(quizzesCache);
+        renderQuizzes(quizzesCache);
+        showStatus(`Loaded and cached ${quizzes.length} local quizzes successfully.`, "success");
+
+    } catch (error) {
+        showStatus(`Failed to load local quizzes: ${error.message}`, "error");
+        quizListContainer.innerHTML = `<div class="quiz-item" style="justify-content:center;color:#dc2626;font-weight:700;padding:30px;text-align:center;">Failed to load local quizzes. Please refresh.</div>`;
+    } finally {
+        refreshBtn.disabled = false;
+    }
+}
+
+function populateFilterDropdowns(quizzes) {
+    const grades = new Set();
+    const skills = new Set();
+    const units = new Set();
+
+    quizzes.forEach(q => {
+        if (q.resolvedGrade && q.resolvedGrade !== "N/A") grades.add(q.resolvedGrade);
+        if (q.resolvedSkill && q.resolvedSkill !== "N/A") skills.add(q.resolvedSkill);
+        if (q.resolvedUnit && q.resolvedUnit !== "N/A") units.add(q.resolvedUnit);
+    });
+
+    updateSelectOptions(filterGrade, Array.from(grades).sort(), "All Grades");
+    updateSelectOptions(filterSkill, Array.from(skills).sort(), "All Skills");
+    updateSelectOptions(filterUnit, Array.from(units).sort(), "All Units");
+}
+
+function updateSelectOptions(selectElement, items, defaultLabel) {
+    const currentVal = selectElement.value;
+    selectElement.innerHTML = `<option value="all">${defaultLabel}</option>`;
+    items.forEach(item => {
+        const opt = document.createElement("option");
+        opt.value = item;
+        opt.textContent = item;
+        selectElement.appendChild(opt);
+    });
+    if ([...selectElement.options].some(o => o.value === currentVal)) {
+        selectElement.value = currentVal;
+    } else {
+        selectElement.value = "all";
+    }
+}
+
+function renderQuizzes(quizzes) {
+    const selectedGrade = filterGrade.value;
+    const selectedSkill = filterSkill.value;
+    const selectedUnit = filterUnit.value;
+
+    const filtered = quizzes.filter(quiz => {
+        const matchGrade = (selectedGrade === "all" || quiz.resolvedGrade === selectedGrade);
+        const matchSkill = (selectedSkill === "all" || quiz.resolvedSkill === selectedSkill);
+        const matchUnit = (selectedUnit === "all" || quiz.resolvedUnit === selectedUnit);
+        return matchGrade && matchSkill && matchUnit;
+    });
+
+    if (filtered.length === 0) {
+        quizListContainer.innerHTML = `<div class="quiz-item" style="justify-content:center;align-items:center;color:#64748b;font-weight:700;padding:30px;text-align:center;">No quizzes match the selected filters.</div>`;
+        return;
+    }
+
+    quizListContainer.innerHTML = "";
+
+    for (const quiz of filtered) {
+        const item = document.createElement("div");
+        item.className = "quiz-item";
+        
+        const quizTitle = escapeHTML(quiz.title || quiz.name || "Untitled Quiz");
+        const quizId = escapeHTML(quiz.id);
+        const questionCount = quiz.resolvedQuestionCount;
+
+        const quizPin = escapeHTML(quiz.pin || quiz.code || "");
+        const gradeName = escapeHTML(quiz.resolvedGrade);
+        const skillName = escapeHTML(quiz.resolvedSkill);
+        const unitName = escapeHTML(quiz.resolvedUnit);
+
+        let resolvedGameName = quiz.gameName || quiz.gameId || quiz.game || "N/A";
+        const gameName = escapeHTML(resolvedGameName);
+
+        const quizNameVal = quiz.title || quiz.name || "";
+        const quizPinVal = quiz.pin || quiz.code || "";
+        const gradeNameVal = quiz.resolvedGrade || "";
+
+        const kahootUrl = `teacher-kahoot-setup.html?name=${encodeURIComponent(quizNameVal)}&pin=${encodeURIComponent(quizPinVal)}&gradename=${encodeURIComponent(gradeNameVal)}`;
+        const spellingUrl = `teacher-spelling-setup.html?name=${encodeURIComponent(quizNameVal)}&pin=${encodeURIComponent(quizPinVal)}&gradename=${encodeURIComponent(gradeNameVal)}`;
+
+        item.innerHTML = `
+            <div class="quiz-info">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; margin-bottom: 8px;">
+                    <div>
+                        <h3>${quizTitle}</h3>
+                        <p>ID: ${quizId}</p>
+                    </div>
+                    <span class="quiz-meta-badge synced">
+                        ✓ Local Copy
+                    </span>
+                </div>
+                <div class="quiz-details-grid">
+                    <div><strong>🔑 PIN:</strong> ${quizPin || "N/A"}</div>
+                    <div><strong>🏫 Grade:</strong> ${gradeName}</div>
+                    <div><strong>📚 Skill:</strong> ${skillName}</div>
+                    <div><strong>🎮 Game:</strong> ${gameName}</div>
+                    <div><strong>📂 Unit:</strong> ${unitName}</div>
+                    <div><strong>❓ Questions:</strong> ${questionCount}</div>
+                </div>
+            </div>
+            <div class="quiz-actions-group">
+                <a href="${kahootUrl}" class="play-kahoot-btn">
+                    🎮 Kahoot
+                </a>
+                <a href="${spellingUrl}" class="play-spelling-btn">
+                    🐝 Spelling
+                </a>
+                <a href="edit-quiz.html?id=${quizId}" class="sync-single-btn">
+                    Manage Quiz
+                </a>
+            </div>
+        `;
+        quizListContainer.appendChild(item);
+    }
+}
+
+refreshBtn.addEventListener("click", () => {
+    loadQuizzes(true);
+});
+
+filterGrade.addEventListener("change", () => {
+    if (quizzesCache) renderQuizzes(quizzesCache);
+});
+filterSkill.addEventListener("change", () => {
+    if (quizzesCache) renderQuizzes(quizzesCache);
+});
+filterUnit.addEventListener("change", () => {
+    if (quizzesCache) renderQuizzes(quizzesCache);
+});
+
+function escapeHTML(value) {
+    return String(value ?? "")
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+}
+
+loadQuizzes(false);
+</script>
+</body>
+</html>
+

@@ -1,0 +1,192 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="theme-color" content="#4f46e5">
+<title>Class Settings — KahootLive</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;width:100%;min-height:100%}
+body{min-height:100vh;display:flex;flex-direction:column;background:#f5f7fb;font-family:Roboto,Arial,sans-serif;color:#111827}
+.settings-wrapper{flex:1;display:flex;flex-direction:column;padding:30px 20px;max-width:600px;width:100%;margin:0 auto}
+.settings-header{margin-bottom:24px;text-align:center}
+.settings-header h1{margin:0 0 8px;font-size:24px;font-weight:700}
+.settings-header p{margin:0;color:#6b7280;font-size:14px}
+.settings-card{background:#fff;border-radius:18px;padding:28px 24px;box-shadow:0 8px 30px rgba(0,0,0,.08);margin-bottom:24px}
+.form-group{margin-bottom:18px}
+.form-label{display:block;margin-bottom:8px;font-size:14px;font-weight:600;color:#374151}
+.form-input{width:100%;height:48px;padding:0 14px;border:1px solid #d1d5db;border-radius:11px;outline:none;background:#fff;color:#111827;font-size:15px;font-family:inherit;transition:all 0.2s}
+.form-input:focus{border-color:#4f46e5;box-shadow:0 0 0 3px rgba(79,70,229,.12)}
+.form-input:disabled{background:#f3f4f6;cursor:not-allowed}
+.save-btn{width:100%;height:48px;margin-top:10px;border:0;border-radius:11px;background:#4f46e5;color:#fff;font-family:inherit;font-size:15px;font-weight:600;cursor:pointer;transition:transform 0.1s}
+.save-btn:active{transform:scale(.98)}
+.save-btn:disabled{opacity:.6;cursor:not-allowed}
+.status-message{display:none;margin-bottom:16px;padding:11px 13px;border-radius:9px;font-size:13px;line-height:1.4}
+.status-message.error{display:block;background:#fef2f2;color:#b91c1c}
+.status-message.success{display:block;background:#f0fdf4;color:#15803d}
+@media(max-width:600px){.settings-wrapper{padding:20px 15px}}
+</style>
+</head>
+<body>
+
+<main class="settings-wrapper">
+<div class="settings-header">
+<h1>Class & Profile Settings</h1>
+<p>Update your teacher name, classroom display name, and custom URL.</p>
+</div>
+
+<section class="settings-card">
+<div id="status-box" class="status-message"></div>
+
+<form id="settings-form">
+<div class="form-group">
+<label class="form-label" for="teacher-name">Your Name</label>
+<input id="teacher-name" class="form-input" type="text" placeholder="e.g., Mr. Smith" required disabled>
+</div>
+<div class="form-group">
+<label class="form-label" for="class-name">Class Name</label>
+<input id="class-name" class="form-input" type="text" placeholder="e.g., Science Class" required disabled>
+</div>
+<div class="form-group">
+<label class="form-label" for="class-url">Class URL (Optional)</label>
+<input id="class-url" class="form-input" type="url" placeholder="https://..." disabled>
+</div>
+<button id="save-btn" class="save-btn" type="submit" disabled>Loading...</button>
+</form>
+</section>
+</main>
+
+<script type="module">
+import { 
+    initAppCore, 
+    requireTeacher, 
+    getCurrentUser, 
+    db, 
+    doc, 
+    getDoc, 
+    setDoc 
+} from "../shared/app-core.js";
+
+// Initialize App Core (automatically injects Header & Footer)
+await initAppCore();
+
+// Enforce teacher access role using App Core rules
+requireTeacher();
+
+const form = document.getElementById("settings-form");
+const teacherNameInput = document.getElementById("teacher-name");
+const classNameInput = document.getElementById("class-name");
+const classUrlInput = document.getElementById("class-url");
+const saveBtn = document.getElementById("save-btn");
+const statusBox = document.getElementById("status-box");
+
+function showStatus(message, type) {
+    statusBox.textContent = message;
+    statusBox.className = `status-message ${type}`;
+}
+
+async function initSettings() {
+    const currentTeacher = getCurrentUser();
+    if (!currentTeacher || !currentTeacher.id) {
+        return;
+    }
+
+    teacherNameInput.disabled = false;
+    classNameInput.disabled = false;
+    classUrlInput.disabled = false;
+    saveBtn.disabled = false;
+    saveBtn.textContent = "Save Settings";
+
+    if (currentTeacher.name) {
+        teacherNameInput.value = currentTeacher.name;
+    }
+
+    if (!db) {
+        return;
+    }
+
+    try {
+        const teacherRef = doc(db, "teachers", currentTeacher.id);
+        const teacherSnap = await getDoc(teacherRef);
+        
+        if (teacherSnap.exists()) {
+            const teacherData = teacherSnap.data();
+            teacherNameInput.value = teacherData.name || currentTeacher.name || "";
+        } else {
+            await setDoc(teacherRef, {
+                name: currentTeacher.name || "Teacher",
+                email: currentTeacher.email || "",
+                createdAt: new Date().toISOString()
+            }, { merge: true });
+        }
+
+        const classSettingsRef = doc(db, "settings", "class");
+        let classSnap;
+        try {
+            classSnap = await getDoc(classSettingsRef);
+        } catch (settingsErr) {
+            console.error("Read warning on settings/class:", settingsErr);
+        }
+
+        if (classSnap && classSnap.exists()) {
+            const classData = classSnap.data();
+            classNameInput.value = classData.classname || "";
+            classUrlInput.value = classData.classurl || "";
+        }
+
+    } catch (error) {
+        showStatus("Error loading saved settings from database.", "error");
+    }
+}
+
+form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    statusBox.className = "status-message";
+    
+    const newTeacherName = teacherNameInput.value.trim();
+    const newClassName = classNameInput.value.trim();
+    const newClassUrl = classUrlInput.value.trim();
+
+    if (!newTeacherName || !newClassName) {
+        showStatus("Teacher Name and Class Name are required.", "error");
+        return;
+    }
+
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Saving...";
+
+    try {
+        const currentTeacher = getCurrentUser();
+        
+        const teacherRef = doc(db, "teachers", currentTeacher.id);
+        await setDoc(teacherRef, {
+            name: newTeacherName,
+            updatedAt: new Date().toISOString()
+        }, { merge: true });
+
+        currentTeacher.name = newTeacherName;
+        localStorage.setItem("kahootlive_teacher", JSON.stringify(currentTeacher));
+
+        const classSettingsRef = doc(db, "settings", "class");
+        await setDoc(classSettingsRef, {
+            classname: newClassName,
+            classurl: newClassUrl,
+            updatedAt: new Date().toISOString()
+        }, { merge: true });
+
+        showStatus("Settings saved successfully!", "success");
+
+    } catch (error) {
+        showStatus("Failed to save settings.", "error");
+    } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = "Save Settings";
+    }
+});
+
+initSettings();
+</script>
+</body>
+</html>

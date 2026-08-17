@@ -1,0 +1,157 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="theme-color" content="#2563eb">
+<title>Active Game Players — KahootLive Teacher</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;width:100%;min-height:100%}
+body{min-height:100vh;display:flex;flex-direction:column;background:#f8fafc;font-family:Roboto,Arial,sans-serif;color:#1e293b}
+.dashboard-wrapper{flex:1;display:flex;flex-direction:column;max-width:800px;width:100%;margin:0 auto;padding:24px 16px}
+
+.dash-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.dash-header h1{margin:0;font-size:24px;font-weight:800;color:#2563eb}
+.pin-badge{background:#eff6ff;color:#1d4ed8;padding:8px 14px;border-radius:12px;font-weight:800;font-size:15px;border:1px solid #bfdbfe}
+
+.card{background:#ffffff;border-radius:20px;padding:24px;box-shadow:0 8px 24px rgba(0,0,0,.06);border:1px solid #e2e8f0;width:100%;display:flex;flex-direction:column;gap:16px}
+
+.players-table{width:100%;border-collapse:collapse;text-align:left}
+.players-table th{background:#f1f5f9;color:#475569;font-size:13px;font-weight:800;padding:12px;border-bottom:2px solid #e2e8f0}
+.players-table td{padding:14px 12px;border-bottom:1px solid #e2e8f0;font-size:15px;font-weight:700;color:#334155;vertical-align:middle}
+.players-table tr:last-child td{border-bottom:none}
+
+.player-avatar-cell{display:flex;align-items:center;gap:12px}
+.table-avatar{width:38px;height:38px;border-radius:50%;background:#e2e8f0;border:2px solid #2563eb;overflow:hidden;flex-shrink:0}
+.table-avatar img{width:100%;height:100%;object-fit:cover}
+
+.empty-state{text-align:center;padding:32px;color:#64748b;font-weight:700;font-size:16px}
+
+.status-message{display:none;padding:14px;border-radius:12px;font-size:14px;font-weight:700;text-align:center;margin-bottom:16px;width:100%}
+.status-message.error{display:block;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5}
+.status-message.info{display:block;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe}
+</style>
+</head>
+<body>
+
+<main class="dashboard-wrapper">
+<div class="dash-header">
+<h1>Active Session Players</h1>
+<div id="pin-display" class="pin-badge">PIN: Loading...</div>
+</div>
+
+<div id="status-box" class="status-message"></div>
+
+<div class="card">
+<table class="players-table">
+<thead>
+<tr>
+<th>Rank</th>
+<th>Avatar & Nickname</th>
+<th>Student ID</th>
+<th>Total Score</th>
+</tr>
+</thead>
+<tbody id="players-tbody">
+<tr><td colspan="4" class="empty-state">Loading active players...</td></tr>
+</tbody>
+</table>
+</div>
+</main>
+
+<script type="module">
+import { 
+    initAppCore, 
+    requireTeacher, 
+    db, 
+    collection, 
+    onSnapshot, 
+    query, 
+    orderBy 
+} from "../shared/app-core.js";
+
+try {
+    await initAppCore();
+    requireTeacher();
+
+    const statusBox = document.getElementById("status-box");
+    const pinDisplay = document.getElementById("pin-display");
+    const playersTbody = document.getElementById("players-tbody");
+
+    function showStatus(message, type = "info") {
+        statusBox.textContent = message;
+        statusBox.className = `status-message ${type}`;
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const sessionPin = urlParams.get("pin") || "";
+
+    if (!sessionPin) {
+        showStatus("Missing game PIN in URL parameters.", "error");
+        pinDisplay.textContent = "PIN: N/A";
+    } else {
+        pinDisplay.textContent = `PIN: ${sessionPin}`;
+        
+        const scoresColRef = collection(db, "game_sessions", sessionPin, "scores");
+        const scoresQuery = query(scoresColRef, orderBy("totalScore", "desc"));
+
+        onSnapshot(scoresQuery, (snapshot) => {
+            if (snapshot.empty) {
+                playersTbody.innerHTML = `<tr><td colspan="4" class="empty-state">No students have joined this session yet.</td></tr>`;
+                return;
+            }
+
+            let html = "";
+            let rankCounter = 1;
+
+            snapshot.forEach((docSnap) => {
+                const data = docSnap.data();
+                const studentId = data.studentId || docSnap.id;
+                const name = data.name || "Unknown";
+                const totalScore = data.totalScore || 0;
+                const avatar = data.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(name)}`;
+
+                html += `
+                    <tr>
+                        <td>#${rankCounter}</td>
+                        <td>
+                            <div class="player-avatar-cell">
+                                <div class="table-avatar">
+                                    <img src="${escapeHTML(avatar)}" alt="Avatar">
+                                </div>
+                                <span>${escapeHTML(name)}</span>
+                            </div>
+                        </td>
+                        <td>${escapeHTML(studentId)}</td>
+                        <td>${totalScore} pts</td>
+                    </tr>
+                `;
+                rankCounter++;
+            });
+
+            playersTbody.innerHTML = html;
+        }, (error) => {
+            console.error("Firestore snapshot error:", error);
+            showStatus(`Failed to load players: ${error.message}`, "error");
+        });
+    }
+
+    function escapeHTML(value) {
+        return String(value ?? "")
+            .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+} catch (e) {
+    console.error("Critical Initialization error:", e);
+    const statusBox = document.getElementById("status-box");
+    if (statusBox) {
+        statusBox.textContent = `Initialization error: ${e.message}`;
+        statusBox.className = "status-message error";
+    }
+}
+</script>
+</body>
+</html>

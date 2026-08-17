@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="theme-color" content="#4f46e5">
+<title>Edit Quiz — KahootLive</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;width:100%;min-height:100%}
+body{min-height:100vh;display:flex;flex-direction:column;background:#f8fafc;font-family:Roboto,Arial,sans-serif;color:#1e293b}
+.edit-wrapper{flex:1;display:flex;flex-direction:column;padding:24px 16px;max-width:800px;width:100%;margin:0 auto}
+.edit-header{margin-bottom:24px;text-align:center}
+.edit-header h1{margin:0 0 8px;font-size:26px;font-weight:800;color:#4f46e5}
+.edit-header p{margin:0;color:#64748b;font-size:15px;font-weight:500}
+
+.card{background:#ffffff;border-radius:18px;padding:20px;box-shadow:0 6px 24px rgba(0,0,0,.06);margin-bottom:20px;border:1px solid #e2e8f0}
+.card h2{margin:0 0 16px;font-size:18px;font-weight:800;color:#0f172a}
+.form-group{margin-bottom:16px}
+.form-group label{display:block;margin-bottom:6px;font-size:14px;font-weight:700;color:#334155}
+.form-control{width:100%;padding:12px 14px;border:1px solid #cbd5e1;border-radius:12px;font-size:15px;font-family:inherit;color:#1e293b;background:#fff;outline:none;transition:border-color 0.2s}
+.form-control:focus{border-color:#4f46e5}
+
+.question-card{background:#f8fafc;border:1px solid #cbd5e1;border-radius:14px;padding:16px;margin-bottom:16px;position:relative}
+.question-card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.question-card-header span{font-weight:800;font-size:15px;color:#4f46e5}
+.delete-q-btn{background:#fee2e2;color:#dc2626;border:0;border-radius:8px;padding:6px 12px;font-weight:700;cursor:pointer;font-size:13px}
+
+.options-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+@media(max-width:600px){.options-grid{grid-template-columns:1fr}}
+.option-item{display:flex;align-items:center;gap:8px}
+.option-item input[type="radio"]{accent-color:#4f46e5;width:18px;height:18px;cursor:pointer}
+
+.image-preview-block{margin-top:10px;margin-bottom:12px;width:100%;height:140px;border-radius:10px;border:1px dashed #cbd5e1;background:#f1f5f9;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+.image-preview-block img{width:100%;height:100%;object-fit:contain;display:none}
+.image-preview-block.has-image img{display:block}
+.image-preview-block .placeholder-text{color:#94a3b8;font-size:13px;font-weight:600;display:block;position:absolute}
+.image-preview-block.has-image .placeholder-text{display:none}
+
+.action-buttons{display:flex;gap:12px;margin-top:24px;flex-wrap:wrap}
+.btn{flex:1;min-width:140px;border:0;border-radius:14px;padding:14px 20px;font-family:inherit;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.05);transition:transform 0.1s}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:#4f46e5;color:#fff;box-shadow:0 4px 12px rgba(79,70,229,0.2)}
+.btn-secondary{background:#e2e8f0;color:#334155}
+
+.status-message{display:none;margin-bottom:20px;padding:16px 18px;border-radius:12px;font-size:15px;font-weight:700;line-height:1.4;text-align:center}
+.status-message.error{display:block;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5}
+.status-message.success{display:block;background:#dcfce7;color:#166534;border:1px solid #86efac}
+.status-message.info{display:block;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe}
+</style>
+</head>
+<body>
+
+<main class="edit-wrapper">
+<div class="edit-header">
+<h1>Edit Quiz Details & Questions</h1>
+<p>Modify quiz title, PIN, game settings, individual questions, MCQ choices, and image block previews.</p>
+</div>
+
+<div id="status-box" class="status-message"></div>
+
+<div class="card">
+<h2>Quiz Metadata</h2>
+<div class="form-group">
+<label for="quiz-title">Quiz Title / File Name</label>
+<input type="text" id="quiz-title" class="form-control" placeholder="Enter quiz title...">
+</div>
+<div class="form-group">
+<label for="quiz-pin">Quiz PIN / Code</label>
+<input type="text" id="quiz-pin" class="form-control" placeholder="Enter PIN...">
+</div>
+<div class="form-group">
+<label for="quiz-game">Game Name</label>
+<input type="text" id="quiz-game" class="form-control" placeholder="Enter game name...">
+</div>
+</div>
+
+<div class="card">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+<h2 style="margin:0;">Questions List</h2>
+<button type="button" id="add-question-btn" class="btn btn-secondary" style="flex:unset;padding:8px 14px;font-size:14px;">+ Add Question</button>
+</div>
+<div id="questions-container">
+<div style="text-align:center;padding:20px;color:#64748b;font-weight:700;">Loading questions...</div>
+</div>
+</div>
+
+<div class="action-buttons">
+<button type="button" id="save-btn" class="btn btn-primary">Save Changes</button>
+<button type="button" id="back-btn" class="btn btn-secondary">Back to Quizzes</button>
+</div>
+</main>
+
+<script type="module">
+import { 
+    initAppCore, 
+    getCurrentUser,
+    db, 
+    doc, 
+    getDoc, 
+    updateDoc 
+} from "../shared/app-core.js";
+
+try {
+    await initAppCore();
+    const user = getCurrentUser();
+
+    if (!user || user.role !== "teacher") {
+        throw new Error("Unauthorized access. Teacher role required.");
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const quizId = urlParams.get("id");
+
+    if (!quizId) {
+        throw new Error("No quiz ID provided in URL parameters.");
+    }
+
+    const statusBox = document.getElementById("status-box");
+    const quizTitleInput = document.getElementById("quiz-title");
+    const quizPinInput = document.getElementById("quiz-pin");
+    const quizGameInput = document.getElementById("quiz-game");
+    const questionsContainer = document.getElementById("questions-container");
+    const saveBtn = document.getElementById("save-btn");
+    const addQuestionBtn = document.getElementById("add-question-btn");
+    const backBtn = document.getElementById("back-btn");
+
+    let currentQuestions = [];
+
+    function showStatus(msg, type = "info") {
+        statusBox.textContent = msg;
+        statusBox.className = `status-message ${type}`;
+    }
+
+    async function loadQuizData() {
+        showStatus("Loading quiz details...", "info");
+        try {
+            const metaSnap = await getDoc(doc(db, "quiz_metadata", quizId));
+            if (metaSnap.exists()) {
+                const meta = metaSnap.data();
+                quizTitleInput.value = meta.title || meta.name || "";
+                quizPinInput.value = meta.pin || meta.code || "";
+                quizGameInput.value = meta.gameName || meta.gameId || meta.game || "";
+            }
+
+            const qSnap = await getDoc(doc(db, "quiz_questions", quizId));
+            if (qSnap.exists()) {
+                const qData = qSnap.data();
+                if (Array.isArray(qData.questions)) {
+                    currentQuestions = qData.questions;
+                } else {
+                    const found = Object.values(qData).find(v => Array.isArray(v));
+                    currentQuestions = found || [];
+                }
+            } else {
+                currentQuestions = [];
+            }
+
+            renderQuestions();
+            showStatus("Quiz loaded successfully.", "success");
+            setTimeout(() => statusBox.style.display = "none", 2000);
+        } catch (err) {
+            showStatus(`Error loading quiz: ${err.message}`, "error");
+        }
+    }
+
+    function renderQuestions() {
+        if (currentQuestions.length === 0) {
+            questionsContainer.innerHTML = `<div style="text-align:center;padding:20px;color:#64748b;font-weight:700;">No questions available. Click '+ Add Question' to create one.</div>`;
+            return;
+        }
+
+        questionsContainer.innerHTML = "";
+        currentQuestions.forEach((q, index) => {
+            const card = document.createElement("div");
+            card.className = "question-card";
+            
+            const questionText = escapeHTML(q.question || q.text || "");
+            const imageUrl = escapeHTML(q.image_url || q.image || q.imageUrl || "");
+            const hasImg = imageUrl && imageUrl.trim() !== "" && imageUrl !== "https://cdn.example.com/image.jpg";
+            
+            const options = [
+                String(q.option_a || ""),
+                String(q.option_b || ""),
+                String(q.option_c || ""),
+                String(q.option_d || "")
+            ];
+
+            let correctIdx = 0;
+            const correctText = String(q.correct_text || "").trim();
+            if (correctText) {
+                const foundIdx = options.findIndex(opt => opt.trim().toLowerCase() === correctText.toLowerCase());
+                if (foundIdx !== -1) {
+                    correctIdx = foundIdx;
+                }
+            } else if (typeof q.correct === 'number') {
+                correctIdx = q.correct;
+            }
+
+            card.innerHTML = `
+                <div class="question-card-header">
+                    <span>Question #${index + 1}</span>
+                    <button type="button" class="delete-q-btn" data-index="${index}">Delete Question</button>
+                </div>
+                <div class="form-group" style="margin-bottom:10px;">
+                    <label>Question Text</label>
+                    <input type="text" class="form-control q-text-input" data-index="${index}" value="${questionText}" placeholder="Enter question text...">
+                </div>
+                <div class="form-group" style="margin-bottom:12px;">
+                    <label>CDN Image URL (Optional)</label>
+                    <input type="text" class="form-control q-image-input" data-index="${index}" value="${imageUrl}" placeholder="https://cdn.example.com/image.jpg">
+                    <div class="image-preview-block ${hasImg ? 'has-image' : ''}">
+                        <span class="placeholder-text">Image Preview Block</span>
+                        <img src="${hasImg ? imageUrl : ''}" alt="Question Image" onerror="this.parentElement.classList.remove('has-image')">
+                    </div>
+                </div>
+                <label style="display:block;margin-bottom:6px;font-size:13px;font-weight:700;color:#334155;">Options & Correct Answer Selection</label>
+                <div class="options-grid">
+                    ${options.map((opt, oIdx) => `
+                        <div class="option-item">
+                            <input type="radio" name="correct-${index}" data-q-index="${index}" data-opt-index="${oIdx}" ${oIdx === correctIdx ? 'checked' : ''} title="Select as correct answer">
+                            <input type="text" class="form-control q-opt-input" data-q-index="${index}" data-opt-index="${oIdx}" data-opt-key="${['option_a', 'option_b', 'option_c', 'option_d'][oIdx]}" value="${escapeHTML(opt)}" placeholder="Option ${['A', 'B', 'C', 'D'][oIdx]}">
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            questionsContainer.appendChild(card);
+        });
+
+        document.querySelectorAll(".q-image-input").forEach(input => {
+            input.addEventListener("input", (e) => {
+                const val = e.target.value.trim();
+                const formGroup = e.target.closest(".form-group");
+                const previewBlock = formGroup ? formGroup.querySelector(".image-preview-block") : null;
+                const previewImg = previewBlock ? previewBlock.querySelector("img") : null;
+                if (previewBlock && previewImg) {
+                    if (val && val !== "https://cdn.example.com/image.jpg") {
+                        previewImg.src = val;
+                        previewBlock.classList.add("has-image");
+                    } else {
+                        previewImg.src = "";
+                        previewBlock.classList.remove("has-image");
+                    }
+                }
+            });
+        });
+
+        document.querySelectorAll(".delete-q-btn").forEach(btn => {
+            btn.addEventListener("click", (e) => {
+                const idx = parseInt(e.target.getAttribute("data-index"));
+                currentQuestions.splice(idx, 1);
+                renderQuestions();
+            });
+        });
+    }
+
+    addQuestionBtn.addEventListener("click", () => {
+        currentQuestions.push({
+            id: 'q_' + Math.random().toString(36).substr(2, 9),
+            quizId: quizId,
+            question: "",
+            image_url: "",
+            option_a: "",
+            option_b: "",
+            option_c: "",
+            option_d: "",
+            correct_text: ""
+        });
+        renderQuestions();
+        questionsContainer.lastElementChild.scrollIntoView({ behavior: 'smooth' });
+    });
+
+    saveBtn.addEventListener("click", async () => {
+        saveBtn.disabled = true;
+        saveBtn.textContent = "Saving...";
+        showStatus("Saving updates to database...", "info");
+
+        try {
+            document.querySelectorAll(".q-text-input").forEach(input => {
+                const idx = parseInt(input.getAttribute("data-index"));
+                if (currentQuestions[idx]) {
+                    currentQuestions[idx].question = input.value;
+                }
+            });
+
+            document.querySelectorAll(".q-image-input").forEach(input => {
+                const idx = parseInt(input.getAttribute("data-index"));
+                if (currentQuestions[idx]) {
+                    currentQuestions[idx].image_url = input.value;
+                    currentQuestions[idx].imageUrl = input.value; 
+                }
+            });
+
+            document.querySelectorAll(".q-opt-input").forEach(input => {
+                const qIdx = parseInt(input.getAttribute("data-q-index"));
+                const optKey = input.getAttribute("data-opt-key");
+                if (currentQuestions[qIdx]) {
+                    currentQuestions[qIdx][optKey] = input.value;
+                }
+            });
+
+            document.querySelectorAll("input[type='radio'][name^='correct-']").forEach(radio => {
+                if (radio.checked) {
+                    const qIdx = parseInt(radio.getAttribute("data-q-index"));
+                    const oIdx = parseInt(radio.getAttribute("data-opt-index"));
+                    const optKeys = ['option_a', 'option_b', 'option_c', 'option_d'];
+                    if (currentQuestions[qIdx]) {
+                        const targetKey = optKeys[oIdx];
+                        currentQuestions[qIdx].correct_text = currentQuestions[qIdx][targetKey] || "";
+                    }
+                }
+            });
+
+            const newTitle = quizTitleInput.value.trim();
+            const newPin = quizPinInput.value.trim();
+            const newGame = quizGameInput.value.trim();
+
+            const metaRef = doc(db, "quiz_metadata", quizId);
+            await updateDoc(metaRef, {
+                title: newTitle,
+                name: newTitle,
+                pin: newPin,
+                code: newPin,
+                gameName: newGame,
+                gameId: newGame
+            });
+
+            const qRef = doc(db, "quiz_questions", quizId);
+            await updateDoc(qRef, {
+                questions: currentQuestions,
+                questionCount: currentQuestions.length
+            });
+
+            showStatus("Quiz updated and saved successfully!", "success");
+            setTimeout(() => {
+                window.location.href = "quizdata.html";
+            }, 1200);
+
+        } catch (err) {
+            showStatus(`Failed to save: ${err.message}`, "error");
+            saveBtn.disabled = false;
+            saveBtn.textContent = "Save Changes";
+        }
+    });
+
+    backBtn.addEventListener("click", () => {
+        window.location.href = "quizdata.html";
+    });
+
+    function escapeHTML(value) {
+        return String(value ?? "")
+            .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    loadQuizData();
+
+} catch (err) {
+    const errorMsg = `CRITICAL ERROR: ${err.message}`;
+    const statusBox = document.getElementById("status-box");
+    if (statusBox) {
+        statusBox.textContent = errorMsg;
+        statusBox.className = "status-message error";
+    }
+    console.error(err);
+}
+</script>
+</body>
+</html>
+

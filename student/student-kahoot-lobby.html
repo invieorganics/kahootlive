@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="theme-color" content="#2563eb">
+<title>Waiting Lobby — KahootLive</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;width:100%;min-height:100%}
+body{min-height:100vh;display:flex;flex-direction:column;background:#f8fafc;font-family:Roboto,Arial,sans-serif;color:#1e293b}
+
+.lobby-wrapper{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;max-width:480px;width:100%;margin:0 auto;padding:24px 16px;gap:20px}
+
+/* Student Profile Badge Card */
+.profile-card{background:#ffffff;border:1px solid #e2e8f0;border-radius:24px;padding:20px;width:100%;display:flex;align-items:center;gap:16px;box-shadow:0 8px 24px rgba(0,0,0,0.06)}
+.profile-avatar{width:64px;height:64px;border-radius:50%;background:#e2e8f0;border:3px solid #2563eb;overflow:hidden;flex-shrink:0}
+.profile-avatar img{width:100%;height:100%;object-fit:cover}
+.profile-info{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}
+.profile-name{font-size:20px;font-weight:900;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.profile-id{font-size:13px;font-weight:700;color:#64748b}
+.profile-pin{font-size:12px;font-weight:600;background:#eff6ff;padding:2px 8px;border-radius:6px;width:fit-content;color:#1d4ed8;border:1px solid #bfdbfe}
+
+/* Quiz Meta Details Card */
+.quiz-meta-card{background:#ffffff;border:1px solid #e2e8f0;border-radius:20px;padding:18px 22px;width:100%;display:flex;flex-direction:column;gap:12px;box-shadow:0 4px 12px rgba(0,0,0,0.03)}
+.meta-row{display:flex;justify-content:space-between;align-items:center;font-size:14px}
+.meta-label{color:#64748b;font-weight:700}
+.meta-value{color:#0f172a;font-weight:800;text-align:right;max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Waiting Banner & Loading Animation */
+.waiting-card{background:#ffffff;color:#1e293b;border-radius:24px;padding:28px 20px;width:100%;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,0.06);border:1px solid #e2e8f0;display:flex;flex-direction:column;gap:16px}
+.waiting-title{margin:0;font-size:22px;font-weight:900;color:#2563eb}
+.waiting-msg{margin:0;font-size:14px;font-weight:700;color:#64748b}
+
+/* Loading Bar Container */
+.loading-bar-container{width:100%;height:10px;background:#e2e8f0;border-radius:6px;overflow:hidden;position:relative}
+.loading-bar-fill{position:absolute;top:0;left:0;height:100%;width:40%;background:linear-gradient(90deg,#2563eb,#60a5fa,#2563eb);border-radius:6px;animation:indeterminate 1.8s infinite linear}
+@keyframes indeterminate{0%{left:-40%}100%{left:100%}}
+</style>
+</head>
+<body>
+
+<main class="lobby-wrapper">
+
+<!-- Student Profile Badge -->
+<div class="profile-card">
+<div class="profile-avatar">
+<img id="student-avatar-img" src="" alt="Avatar">
+</div>
+<div class="profile-info">
+<div id="student-name-el" class="profile-name">Loading...</div>
+<div id="student-id-el" class="profile-id">ID: --</div>
+<div id="session-pin-badge" class="profile-pin">PIN: --</div>
+</div>
+</div>
+
+<!-- Quiz Metadata Info -->
+<div class="quiz-meta-card">
+<div class="meta-row">
+<span class="meta-label">Quiz File Name</span>
+<span id="quiz-filename" class="meta-value">Fetching session...</span>
+</div>
+<div class="meta-row">
+<span class="meta-label">Total Questions</span>
+<span id="quiz-question-count" class="meta-value">--</span>
+</div>
+</div>
+
+<!-- Waiting Card with Loading Bar -->
+<div class="waiting-card">
+<h2 class="waiting-title">You're in!</h2>
+<p id="waiting-message" class="waiting-msg">Waiting for the teacher to start the game...</p>
+<div class="loading-bar-container">
+<div class="loading-bar-fill"></div>
+</div>
+</div>
+
+</main>
+
+<script type="module">
+console.log("🔥 MODULE SCRIPT STARTING TO EXECUTE...");
+
+try {
+    console.log("Attempting import from: ../shared/app-core.js");
+    const appCore = await import("../shared/app-core.js");
+    console.log("SUCCESS: ../shared/app-core.js loaded successfully!");
+
+    const { initAppCore, db, doc, onSnapshot } = appCore;
+
+    console.log("Attempting import from: ./student-router.js");
+    const routerModule = await import("./student-router.js");
+    console.log("SUCCESS: ./student-router.js loaded successfully!");
+    
+    const initStudentGameListener = routerModule.initStudentGameListener || routerModule.default;
+
+    const coreResult = initAppCore();
+    if (coreResult instanceof Promise) {
+        await coreResult;
+    }
+    console.log("SUCCESS: initAppCore executed successfully.");
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlPin = urlParams.get("pin");
+    const urlName = urlParams.get("name");
+    const urlId = urlParams.get("id");
+
+    let localSession = JSON.parse(localStorage.getItem("kahootlive_student") || "{}");
+
+    const activePin = urlPin || localSession.pin;
+    const activeName = urlName || localSession.name || localSession.username || "Student";
+    const activeId = urlId || localSession.studentId || localSession.id || `STU-${Math.floor(10000 + Math.random() * 90000)}`;
+    const activeAvatar = localSession.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(activeName)}`;
+
+    localSession = {
+        pin: activePin,
+        name: activeName,
+        studentId: activeId,
+        avatar: activeAvatar
+    };
+    localStorage.setItem("kahootlive_student", JSON.stringify(localSession));
+
+    if (!activePin) {
+        console.warn("WARNING: No active PIN found! Redirecting to login...");
+        window.location.href = "student-login.html";
+        throw new Error("Missing PIN.");
+    }
+
+    document.getElementById("student-name-el").textContent = activeName;
+    document.getElementById("student-id-el").textContent = `ID: ${activeId}`;
+    document.getElementById("session-pin-badge").textContent = `PIN: ${activePin}`;
+    document.getElementById("student-avatar-img").src = activeAvatar;
+
+    const quizFilenameEl = document.getElementById("quiz-filename");
+    const quizQuestionCountEl = document.getElementById("quiz-question-count");
+    const waitingMessageEl = document.getElementById("waiting-message");
+
+    if (typeof initStudentGameListener === "function") {
+        initStudentGameListener(activePin);
+        console.log("SUCCESS: initStudentGameListener invoked with PIN:", activePin);
+    } else {
+        console.warn("WARNING: initStudentGameListener export not found or not a function. Running fallback built-in router logic.");
+        const sessionRefFallback = doc(db, "game_sessions", activePin);
+        onSnapshot(sessionRefFallback, (docSnap) => {
+            if (!docSnap.exists()) return;
+            const data = docSnap.data();
+            const gameMode = data.gameMode || (data.status === "playing" ? "playing" : "lobby");
+            if (gameMode === "playing") {
+                window.location.href = `student-kahoot-playing.html?pin=${encodeURIComponent(activePin)}&id=${encodeURIComponent(activeId)}`;
+            } else if (gameMode === "leaderboard") {
+                window.location.href = `student-kahoot-leaderboard.html?pin=${encodeURIComponent(activePin)}&id=${encodeURIComponent(activeId)}`;
+            }
+        });
+    }
+
+    const sessionRef = doc(db, "game_sessions", activePin);
+
+    onSnapshot(sessionRef, (docSnap) => {
+        if (!docSnap.exists()) {
+            waitingMessageEl.textContent = "Game session was closed by the teacher.";
+            console.warn("Game session document does not exist in Firestore.");
+            return;
+        }
+
+        const data = docSnap.data();
+        console.log("FIRESTORE SNAPSHOT RECEIVED:", data);
+
+        if (data.fileName || data.quizTitle || data.name) {
+            quizFilenameEl.textContent = data.fileName || data.quizTitle || data.name;
+        } else {
+            quizFilenameEl.textContent = "Live Quiz Session";
+        }
+
+        if (data.questionCount !== undefined) {
+            quizQuestionCountEl.textContent = `${data.questionCount} Questions`;
+        } else if (Array.isArray(data.questions)) {
+            quizQuestionCountEl.textContent = `${data.questions.length} Questions`;
+        } else {
+            quizQuestionCountEl.textContent = "Active Quiz";
+        }
+    }, (error) => {
+        console.error("Firestore Snapshot Error:", error.message);
+        waitingMessageEl.textContent = "Connection error. Retrying...";
+    });
+
+} catch (e) {
+    console.error("FATAL SCRIPT CRASH:", e.message);
+}
+</script>
+</body>
+</html>
+

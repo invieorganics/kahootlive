@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="theme-color" content="#2563eb">
+<title>Play Game — KahootLive</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;width:100%;min-height:100%}
+body{min-height:100vh;display:flex;flex-direction:column;background:#f8fafc;font-family:Roboto,Arial,sans-serif;color:#1e293b}
+
+.student-wrapper{flex:1;display:flex;flex-direction:column;max-width:860px;width:100%;margin:0 auto;padding:16px 12px;gap:14px}
+
+/* Top Header Bar */
+.student-header{background:#ffffff;border:2px solid #e2e8f0;border-radius:18px;padding:14px 16px;display:flex;flex-direction:column;gap:12px;box-shadow:0 6px 16px rgba(0,0,0,0.04)}
+.student-header-top{display:flex;justify-content:space-between;align-items:center;width:100%;gap:10px}
+.student-quiz-title{font-size:18px;font-weight:900;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+.student-badge-group{display:flex;gap:10px;align-items:center;flex-wrap:wrap;width:100%;justify-content:flex-start}
+
+/* Student Profile Badge Card */
+.student-profile-badge{display:flex;align-items:center;gap:10px;background:#f1f5f9;border:1px solid #cbd5e1;padding:6px 12px;border-radius:20px;margin-bottom:4px}
+.student-profile-avatar{width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid #2563eb;background:#e2e8f0}
+.student-profile-text{display:flex;flex-direction:column;line-height:1.2}
+.student-profile-name{font-size:14px;font-weight:900;color:#0f172a}
+.student-profile-id{font-size:11px;font-weight:700;color:#64748b}
+
+/* Badges */
+.badge{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;font-size:14px;font-weight:900;padding:10px 16px;border-radius:24px;white-space:nowrap;box-shadow:0 2px 6px rgba(37,99,235,0.1)}
+.badge-pin{background:#eff6ff;color:#1d4ed8;border:2px solid #bfdbfe;font-size:16px;font-weight:900;padding:10px 18px;border-radius:24px;white-space:nowrap;box-shadow:0 2px 8px rgba(37,99,235,0.15)}
+
+/* Standalone Pause Status Indicator row card */
+.pause-container{width:100%;display:flex;justify-content:flex-start;align-items:center}
+.pause-status-banner{background:#e2e8f0;color:#334155;border:2px solid #cbd5e1;font-size:15px;font-weight:900;padding:12px 24px;border-radius:24px;width:100%;text-align:center;box-shadow:0 3px 8px rgba(0,0,0,0.08);transition:all 0.2s}
+.pause-status-banner.paused{background:#fee2e2;color:#991b1b;border-color:#fca5a5;box-shadow:0 3px 8px rgba(153,27,27,0.15)}
+
+/* Timer Bar Section */
+.timer-container{width:100%;background:#ffffff;border:2px solid #e2e8f0;border-radius:18px;padding:14px 18px;box-shadow:0 6px 16px rgba(0,0,0,0.04);display:flex;flex-direction:column;gap:8px}
+.timer-info-row{display:flex;justify-content:space-between;align-items:center;font-size:15px;font-weight:900;color:#475569}
+.timer-bar-track{width:100%;height:14px;background:#e2e8f0;border-radius:7px;overflow:hidden;position:relative}
+.timer-bar-fill{position:absolute;top:0;left:0;height:100%;width:100%;background:#22c55e;border-radius:7px;transition:width 1s linear, background-color 0.5s}
+
+/* Question Card */
+.question-card{background:#ffffff;border:2px solid #e2e8f0;border-radius:22px;padding:20px 16px;box-shadow:0 10px 28px rgba(0,0,0,0.05);display:flex;flex-direction:column;gap:14px;text-align:center}
+.question-counter{font-size:13px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:1.2px}
+.question-text{font-size:22px;font-weight:900;color:#0f172a;line-height:1.3;margin:0}
+
+/* Image Preview Block */
+.student-image-container{width:100%;max-height:200px;border-radius:14px;overflow:hidden;display:none;align-items:center;justify-content:center;background:#f1f5f9;border:2px solid #e2e8f0;margin-top:4px}
+.student-image-container img{max-width:100%;max-height:200px;object-fit:contain;display:block}
+.student-image-container.has-image{display:flex}
+
+/* MCQ Options Grid */
+.options-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;padding-bottom:10px}
+.option-btn{border:4px solid transparent;border-radius:16px;padding:16px 12px;font-size:16px;font-weight:900;color:#ffffff;cursor:pointer;display:flex;align-items:center;justify-content:center;text-align:center;box-shadow:0 6px 16px rgba(0,0,0,0.1);min-height:80px;word-break:break-word;transition:all 0.3s}
+.option-btn:active{transform:scale(0.96)}
+.option-btn:disabled{cursor:not-allowed;opacity:0.9}
+
+/* Distinct Kahoot Colors */
+.option-btn:nth-child(1){background:#e21b3c} /* Red */
+.option-btn:nth-child(2){background:#1368ce} /* Blue */
+.option-btn:nth-child(3){background:#d89e00} /* Yellow */
+.option-btn:nth-child(4){background:#26890c} /* Green */
+
+/* Selection & Result States */
+.option-btn.selected{border-color:#ffffff !important;box-shadow:0 0 30px rgba(255,255,255,0.9);transform:scale(1.03)}
+.option-btn.locked{border-color:#fbbf24 !important;box-shadow:0 0 25px rgba(251,191,36,0.8);transform:scale(1.02);filter:brightness(1.1)}
+.option-btn.correct-highlight{border-color:#ffffff !important;box-shadow:0 0 30px rgba(34,197,94,0.9);transform:scale(1.03);filter:brightness(1.2)}
+.option-btn.wrong-highlight{border-color:#ffffff !important;box-shadow:0 0 30px rgba(239,68,68,0.9);transform:scale(1.03);filter:brightness(1.2)}
+.option-btn.dimmed{opacity:0.35;filter:grayscale(0.4)}
+
+/* Feedback Overlay / Banner */
+#feedback-banner{display:none;width:100%;padding:14px;border-radius:16px;text-align:center;font-size:18px;font-weight:900;color:#ffffff;box-shadow:0 4px 12px rgba(0,0,0,0.1)}
+#feedback-banner.correct{background:#22c55e;display:block}
+#feedback-banner.wrong{background:#ef4444;display:block}
+#feedback-banner.locked{background:#f59e0b;display:block}
+#feedback-banner.waiting{background:#3b82f6;display:block}
+
+/* Structured Score Breakdown Cards */
+.score-breakdown-card {
+    background: #f0fdf4;
+    border: 2px solid #bbf7d0;
+    border-radius: 18px;
+    padding: 14px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.score-title-row {
+    font-size: 15px;
+    font-weight: 900;
+    color: #166534;
+    text-align: center;
+}
+.score-blocks-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+.score-metric-box {
+    background: #ffffff;
+    border: 1px solid #dcfce7;
+    border-radius: 12px;
+    padding: 8px 6px;
+    text-align: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+}
+.score-metric-label {
+    font-size: 11px;
+    font-weight: 800;
+    color: #15803d;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+}
+.score-metric-value {
+    font-size: 14px;
+    font-weight: 900;
+    color: #166534;
+}
+</style>
+</head>
+<body>
+
+<main class="student-wrapper">
+
+<!-- Top Header Info -->
+<div class="student-header">
+<div class="student-header-top">
+<div id="display-quiz-name" class="student-quiz-title">Loading Quiz...</div>
+</div>
+<!-- Student Profile Details Bar -->
+<div class="student-profile-badge">
+<img id="student-avatar-img" src="" alt="Avatar" class="student-profile-avatar">
+<div class="student-profile-text">
+<span id="student-name-display" class="student-profile-name">Loading...</span>
+<span id="student-id-display" class="student-profile-id">ID: --</span>
+</div>
+</div>
+<div class="student-badge-group">
+<span id="display-pin" class="badge-pin">PIN: --</span>
+<span id="display-gradename" class="badge">--</span>
+<span id="display-gamemode" class="badge">Mode: waiting</span>
+</div>
+</div>
+
+<!-- Standalone Pause Status Banner -->
+<div class="pause-container">
+<div id="pause-status-banner" class="pause-status-banner">🟢 Game Live</div>
+</div>
+
+<!-- Timer Bar Section -->
+<div class="timer-container">
+<div class="timer-info-row">
+<span id="timer-status-label">Time Remaining</span>
+<span id="timer-countdown">--</span>
+</div>
+<div class="timer-bar-track">
+<div id="timer-fill" class="timer-bar-fill" style="width: 100%;"></div>
+</div>
+</div>
+
+<!-- Feedback Message Banner -->
+<div id="feedback-banner" class="waiting">Loading question...</div>
+
+<!-- Structured Score Breakdown Blocks Card -->
+<div id="score-display-card" class="score-breakdown-card" style="display:none;">
+    <div class="score-title-row" id="score-main-status">🎉 Correct Answer!</div>
+    <div class="score-blocks-grid">
+        <div class="score-metric-box">
+            <div class="score-metric-label">Base</div>
+            <div class="score-metric-value" id="val-base">0 pts</div>
+        </div>
+        <div class="score-metric-box">
+            <div class="score-metric-label">Fast (Speed)</div>
+            <div class="score-metric-value" id="val-fast">0 pts</div>
+        </div>
+        <div class="score-metric-box">
+            <div class="score-metric-label">Total</div>
+            <div class="score-metric-value" id="val-total">0 pts</div>
+        </div>
+    </div>
+</div>
+
+<!-- Question Card -->
+<div class="question-card">
+<div id="question-counter-label" class="question-counter">Question -- of --</div>
+<h2 id="question-text-el" class="question-text">Waiting for the game to begin...</h2>
+<!-- Question Image Container -->
+<div id="student-image-container" class="student-image-container">
+<img id="student-question-img" src="" alt="Question Illustration">
+</div>
+</div>
+
+<!-- MCQ Grid -->
+<div id="options-container" class="options-grid">
+<div class="option-btn" style="opacity:0.5;" disabled>A. ---</div>
+<div class="option-btn" style="opacity:0.5;" disabled>B. ---</div>
+<div class="option-btn" style="opacity:0.5;" disabled>C. ---</div>
+<div class="option-btn" style="opacity:0.5;" disabled>D. ---</div>
+</div>
+
+</main>
+
+<script type="module" src="kahoot-play.js"></script>
+</body>
+</html>
+

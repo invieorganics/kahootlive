@@ -1,0 +1,336 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="theme-color" content="#4f46e5">
+<title>Sync Quizzes from ClassHQC — KahootLive</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;width:100%;min-height:100%}
+body{min-height:100vh;display:flex;flex-direction:column;background:#f8fafc;font-family:Roboto,Arial,sans-serif;color:#1e293b}
+.sync-wrapper{flex:1;display:flex;flex-direction:column;padding:24px 16px;max-width:700px;width:100%;margin:0 auto}
+.sync-header{margin-bottom:20px;text-align:center}
+.sync-header h1{margin:0 0 8px;font-size:26px;font-weight:800;color:#dc2626}
+.sync-header p{margin:0;color:#64748b;font-size:16px;font-weight:500;line-height:1.4}
+.sync-actions{display:flex;gap:12px;margin-bottom:24px;justify-content:center;flex-wrap:wrap}
+.action-btn{flex:1;min-width:140px;border:0;border-radius:14px;padding:16px 20px;background:#4f46e5;color:#fff;font-family:inherit;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(79,70,229,0.2);transition:transform 0.1s}
+.action-btn:active{transform:scale(.97)}
+.action-btn:disabled{opacity:.6;cursor:not-allowed;box-shadow:none}
+.action-btn.secondary{background:#e2e8f0;color:#334155;box-shadow:0 4px 12px rgba(0,0,0,0.05)}
+
+/* Progress Bar Styles */
+.progress-container {display:none;margin-bottom:20px;background:#ffffff;padding:16px;border-radius:14px;box-shadow:0 4px 16px rgba(0,0,0,.05);border:1px solid #e2e8f0;}
+.progress-container.active {display:block;}
+.progress-info {display:flex;justify-content:space-between;font-size:15px;font-weight:700;color:#1e293b;margin-bottom:8px;}
+.progress-bar-bg {width:100%;height:12px;background:#f1f5f9;border-radius:6px;overflow:hidden;}
+.progress-bar-fill {width:0%;height:100%;background:#4f46e5;border-radius:6px;transition:width 0.3s ease;}
+
+.status-message{display:none;margin-bottom:20px;padding:16px 18px;border-radius:12px;font-size:16px;font-weight:700;line-height:1.4;text-align:center}
+.status-message.error{display:block;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5}
+.status-message.success{display:block;background:#dcfce7;color:#166534;border:1px solid #86efac}
+.status-message.info{display:block;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe}
+
+.quiz-list{display:flex;flex-direction:column;gap:16px;margin-bottom:24px}
+.quiz-item{background:#ffffff;border-radius:18px;padding:20px;box-shadow:0 6px 24px rgba(0,0,0,.06);display:flex;flex-direction:column;gap:16px;border:1px solid #e2e8f0;color:#1e293b}
+.quiz-info h3{margin:0 0 6px;font-size:20px;font-weight:800;color:#0f172a}
+.quiz-info p{margin:0;color:#64748b;font-size:14px;font-weight:600}
+.quiz-details-grid {display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; width: 100%; font-size: 15px; color:#334155; background: #f8fafc; padding: 14px; border-radius: 12px; border: 1px solid #e2e8f0; }
+.quiz-details-grid div{font-weight:600}
+.quiz-meta-badge{display:inline-block;padding:6px 12px;border-radius:8px;font-size:13px;font-weight:700;background:#f1f5f9;color:#64748b}
+.quiz-meta-badge.synced{background:#dcfce7;color:#166534}
+.sync-single-btn{width:100%;border:0;border-radius:12px;padding:14px;background:#4f46e5;color:#fff;font-family:inherit;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(79,70,229,0.2)}
+.sync-single-btn:active{transform:scale(.98)}
+.sync-single-btn:disabled{opacity:.6;cursor:not-allowed;box-shadow:none}
+</style>
+</head>
+<body>
+
+<main class="sync-wrapper">
+<div class="sync-header">
+<h1>Sync ClassHQC Quizzes</h1>
+<p>Import and synchronize quiz names, PINs, games, and questions seamlessly.</p>
+</div>
+
+<div class="sync-actions">
+<button type="button" id="sync-all-btn" class="action-btn">Sync All</button>
+<button type="button" id="refresh-btn" class="action-btn secondary">Refresh</button>
+</div>
+
+<!-- Live Progress Bar Component -->
+<div id="progress-container" class="progress-container">
+<div class="progress-info">
+<span id="progress-text">Syncing quizzes...</span>
+<span id="progress-percentage">0%</span>
+</div>
+<div class="progress-bar-bg">
+<div id="progress-bar-fill" class="progress-bar-fill"></div>
+</div>
+</div>
+
+<div id="status-box" class="status-message"></div>
+
+<div id="quiz-list" class="quiz-list">
+<div class="quiz-item" style="justify-content:center;align-items:center;color:#64748b;font-weight:700;padding:30px;text-align:center;">Initializing modules and loading quizzes...</div>
+</div>
+</main>
+
+<script type="module">
+import { 
+    initAppCore, 
+    requireTeacher, 
+    db, 
+    collection, 
+    getDocs, 
+    doc, 
+    getDoc 
+} from "../shared/app-core.js";
+
+import { 
+    getClassHqcQuizzes, 
+    syncQuizFromClassHqc, 
+    syncAllClassHqcQuizzes, 
+    isQuizSynced,
+    classHqcDb 
+} from "../shared/sync-classhqc-quizzes.js";
+
+// Initialize App Core (automatically injects Header & Footer)
+await initAppCore();
+
+// Enforce teacher access role using App Core rules
+requireTeacher();
+
+const statusBox = document.getElementById("status-box");
+const quizListContainer = document.getElementById("quiz-list");
+const syncAllBtn = document.getElementById("sync-all-btn");
+const refreshBtn = document.getElementById("refresh-btn");
+const progressContainer = document.getElementById("progress-container");
+const progressText = document.getElementById("progress-text");
+const progressPercentage = document.getElementById("progress-percentage");
+const progressBarFill = document.getElementById("progress-bar-fill");
+
+function showStatus(message, type = "info") {
+    statusBox.textContent = message;
+    statusBox.className = `status-message ${type}`;
+}
+
+function updateProgress(current, total, label = "Syncing quizzes...") {
+    const percent = total > 0 ? Math.round((current / total) * 100) : 0;
+    progressText.textContent = `${label} (${current}/${total})`;
+    progressPercentage.textContent = `${percent}%`;
+    progressBarFill.style.width = `${percent}%`;
+}
+
+async function loadReferenceMaps() {
+    const gradesMap = {};
+    const skillsMap = {};
+    const gamesMap = {};
+    try {
+        const gradesSnap = await getDocs(collection(classHqcDb, "grades"));
+        gradesSnap.forEach(d => {
+            const data = d.data();
+            gradesMap[d.id] = data.name || data.gradeName || d.id;
+        });
+
+        const skillsSnap = await getDocs(collection(classHqcDb, "skills"));
+        skillsSnap.forEach(d => {
+            const data = d.data();
+            skillsMap[d.id] = data.name || data.skillName || d.id;
+        });
+
+        const gamesSnap = await getDocs(collection(classHqcDb, "games"));
+        gamesSnap.forEach(d => {
+            const data = d.data();
+            gamesMap[d.id] = data.name || data.title || d.id;
+        });
+    } catch (err) {
+        console.warn("Could not fetch reference documents: " + err.message);
+    }
+    return { gradesMap, skillsMap, gamesMap };
+}
+
+async function loadQuizzes() {
+    showStatus("Fetching quizzes and mapping fields...", "info");
+    quizListContainer.innerHTML = `<div class="quiz-item" style="justify-content:center;align-items:center;color:#64748b;font-weight:700;padding:30px;text-align:center;">Loading quizzes...</div>`;
+
+    try {
+        const [quizzes, { gradesMap, skillsMap, gamesMap }] = await Promise.all([
+            getClassHqcQuizzes(),
+            loadReferenceMaps()
+        ]);
+
+        if (quizzes.length === 0) {
+            quizListContainer.innerHTML = `<div class="quiz-item" style="justify-content:center;align-items:center;color:#64748b;font-weight:700;padding:30px;text-align:center;">No quizzes found.</div>`;
+            showStatus("No quizzes found.", "info");
+            return;
+        }
+
+        quizListContainer.innerHTML = "";
+
+        for (const quiz of quizzes) {
+            const synced = await isQuizSynced(quiz.id);
+            const item = document.createElement("div");
+            item.className = "quiz-item";
+            
+            const quizTitle = escapeHTML(quiz.title || quiz.name || "Untitled Quiz");
+            const quizId = escapeHTML(quiz.id);
+            const quizPin = escapeHTML(quiz.pin || quiz.code || "N/A");
+            
+            const rawGradeKey = String(quiz.gradeId || "").trim();
+            const rawSkillKey = String(quiz.skillId || "").trim();
+
+            const resolvedGradeName = gradesMap[rawGradeKey] || quiz.gradeName || rawGradeKey || "N/A";
+            const gradeName = escapeHTML(resolvedGradeName);
+
+            const resolvedSkillName = skillsMap[rawSkillKey] || quiz.skillName || rawSkillKey || "N/A";
+            const skillName = escapeHTML(resolvedSkillName);
+            const unitName = escapeHTML(quiz.unitName || quiz.unit || "N/A");
+            const questionCount = quiz.questionCount !== undefined ? quiz.questionCount : (Array.isArray(quiz.questions) ? quiz.questions.length : "Unknown");
+
+            // Game name resolution with multi-fallback & skill name heuristic check
+            let resolvedGameName = "N/A";
+            const rawGameKey = String(quiz.gameId || quiz.game || quiz.gameRef || "").trim();
+
+            if (rawGameKey && gamesMap[rawGameKey]) {
+                resolvedGameName = gamesMap[rawGameKey];
+            } else if (quiz.gameName) {
+                resolvedGameName = quiz.gameName;
+            } else if (typeof quiz.game === "string" && quiz.game.trim() !== "") {
+                resolvedGameName = quiz.game;
+            } else {
+                const matchedGameEntry = Object.entries(gamesMap).find(([id, name]) => 
+                    id.toLowerCase() === rawGameKey.toLowerCase() || 
+                    String(name).toLowerCase() === rawGameKey.toLowerCase()
+                );
+                if (matchedGameEntry) {
+                    resolvedGameName = matchedGameEntry[1];
+                } else {
+                    try {
+                        const gameSnap = await getDoc(doc(classHqcDb, "games", quizId));
+                        if (gameSnap.exists()) {
+                            const gData = gameSnap.data();
+                            resolvedGameName = gData.name || gData.title || "N/A";
+                        }
+                    } catch (e) {
+                        // ignore subcollection lookup error
+                    }
+                }
+            }
+
+            // Fallback heuristic based on skill if game name is still N/A
+            if (resolvedGameName === "N/A") {
+                const skillCheckString = (resolvedSkillName + " " + rawSkillKey).toLowerCase();
+                if (skillCheckString.includes("vocabulary")) {
+                    resolvedGameName = "Spelling, Kahoot";
+                } else if (skillCheckString.includes("grammar")) {
+                    resolvedGameName = "Kahoot";
+                }
+            }
+
+            const gameName = escapeHTML(resolvedGameName);
+
+            item.innerHTML = `
+                <div class="quiz-info">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; margin-bottom: 8px;">
+                        <div>
+                            <h3>${quizTitle}</h3>
+                            <p>ID: ${quizId}</p>
+                        </div>
+                        <span class="quiz-meta-badge ${synced ? 'synced' : ''}">
+                            ${synced ? '✓ Synced' : 'Not Synced'}
+                        </span>
+                    </div>
+                    <div class="quiz-details-grid">
+                        <div><strong>🔑 PIN:</strong> ${quizPin}</div>
+                        <div><strong>🏫 Grade:</strong> ${gradeName}</div>
+                        <div><strong>📚 Skill:</strong> ${skillName}</div>
+                        <div><strong>🎮 Game:</strong> ${gameName}</div>
+                        <div><strong>📂 Unit:</strong> ${unitName}</div>
+                        <div><strong>❓ Questions:</strong> ${questionCount}</div>
+                    </div>
+                </div>
+                <div>
+                    <button type="button" class="sync-single-btn" data-quiz-id="${quizId}">
+                        ${synced ? 'Re-Sync Quiz' : 'Sync Quiz Now'}
+                    </button>
+                </div>
+            `;
+            quizListContainer.appendChild(item);
+        }
+
+        document.querySelectorAll(".sync-single-btn").forEach(btn => {
+            btn.addEventListener("click", async (e) => {
+                const quizId = e.target.getAttribute("data-quiz-id");
+                e.target.disabled = true;
+                e.target.textContent = "Syncing...";
+                
+                progressContainer.classList.add("active");
+                updateProgress(1, 1, "Syncing individual quiz...");
+                showStatus(`Syncing quiz ${quizId}...`, "info");
+                
+                try {
+                    await syncQuizFromClassHqc(quizId);
+                    updateProgress(1, 1, "Sync complete!");
+                    showStatus(`Successfully synced quiz ${quizId}!`, "success");
+                    setTimeout(() => progressContainer.classList.remove("active"), 1500);
+                    loadQuizzes();
+                } catch (error) {
+                    progressContainer.classList.remove("active");
+                    showStatus(`Failed to sync quiz ${quizId}: ${error.message}`, "error");
+                    e.target.disabled = false;
+                    e.target.textContent = "Sync Quiz Now";
+                }
+            });
+        });
+
+        showStatus(`Loaded ${quizzes.length} quizzes successfully.`, "success");
+
+    } catch (error) {
+        showStatus(`Failed to load quizzes: ${error.message}`, "error");
+        quizListContainer.innerHTML = `<div class="quiz-item" style="justify-content:center;color:#dc2626;font-weight:700;padding:30px;text-align:center;">Failed to load quizzes. Please refresh.</div>`;
+    }
+}
+
+syncAllBtn.addEventListener("click", async () => {
+    if (!confirm("Are you sure you want to sync all quizzes?")) return;
+    syncAllBtn.disabled = true;
+    refreshBtn.disabled = true;
+    
+    progressContainer.classList.add("active");
+    updateProgress(0, 100, "Preparing batch sync...");
+    showStatus("Syncing all quizzes, please watch the progress...", "info");
+
+    try {
+        updateProgress(25, 100, "Fetching remote records...");
+        const result = await syncAllClassHqcQuizzes();
+        
+        updateProgress(100, 100, "Sync complete!");
+        showStatus(`Sync complete! Successful: ${result.successful}, Failed: ${result.failed}`, "success");
+        
+        setTimeout(() => {
+            progressContainer.classList.remove("active");
+            loadQuizzes();
+        }, 1500);
+
+    } catch (error) {
+        progressContainer.classList.remove("active");
+        showStatus(`Batch sync failed: ${error.message}`, "error");
+    } finally {
+        syncAllBtn.disabled = false;
+        refreshBtn.disabled = false;
+    }
+});
+
+refreshBtn.addEventListener("click", () => loadQuizzes());
+
+function escapeHTML(value) {
+    return String(value ?? "")
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+}
+
+loadQuizzes();
+</script>
+</body>
+</html>

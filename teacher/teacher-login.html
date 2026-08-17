@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="theme-color" content="#4f46e5">
+<title>Teacher Login — KahootLive</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;width:100%;min-height:100%}
+body{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f5f7fb;font-family:Roboto,Arial,sans-serif;color:#111827;padding:20px}
+.login-container{width:100%;max-width:400px}
+.login-card{width:100%;background:#fff;border-radius:18px;padding:28px 22px;box-shadow:0 8px 30px rgba(0,0,0,.08)}
+.login-logo{width:64px;height:64px;margin:0 auto 16px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:#4f46e5;color:#fff;font-size:30px;font-weight:700}
+.login-title{margin:0;text-align:center;font-size:24px;font-weight:700}
+.login-subtitle{margin:7px 0 26px;text-align:center;color:#6b7280;font-size:14px}
+.form-group{margin-bottom:16px}
+.form-label{display:block;margin-bottom:7px;font-size:14px;font-weight:600;color:#374151}
+.form-input{width:100%;height:48px;padding:0 14px;border:1px solid #d1d5db;border-radius:11px;outline:none;background:#fff;color:#111827;font-size:15px;font-family:inherit}
+.form-input:focus{border-color:#4f46e5;box-shadow:0 0 0 3px rgba(79,70,229,.12)}
+.login-button{width:100%;height:48px;margin-top:6px;border:0;border-radius:11px;background:#4f46e5;color:#fff;font-family:inherit;font-size:15px;font-weight:600;cursor:pointer}
+.login-button:active{transform:scale(.98)}
+.login-button:disabled{opacity:.6;cursor:not-allowed}
+.error-message{display:none;margin-bottom:16px;padding:11px 13px;border-radius:9px;background:#fef2f2;color:#b91c1c;font-size:13px;line-height:1.4}
+.error-message.show{display:block}
+.back-link{display:block;margin-top:20px;text-align:center;color:#6b7280;text-decoration:none;font-size:13px}
+@media(max-width:380px){body{padding:14px}.login-card{padding:24px 18px}.login-title{font-size:22px}}
+</style>
+</head>
+<body>
+<main class="login-container">
+<section class="login-card">
+<div class="login-logo">K</div>
+<h1 class="login-title">Teacher Login</h1>
+<p class="login-subtitle">KahootLive Educator Portal</p>
+<div id="login-error" class="error-message"></div>
+<form id="teacher-login-form">
+<div class="form-group">
+<label class="form-label" for="teacher-email">Email Address</label>
+<input id="teacher-email" class="form-input" type="email" autocomplete="email" placeholder="Teacher email" required>
+</div>
+<div class="form-group">
+<label class="form-label" for="teacher-password">Password</label>
+<input id="teacher-password" class="form-input" type="password" autocomplete="current-password" placeholder="Password" required>
+</div>
+<button id="login-button" class="login-button" type="submit">Login</button>
+</form>
+
+<a href="../index.html" class="back-link">← Back to KahootLive</a>
+</section>
+</main>
+
+<script type="module">
+import { 
+    initAppCore, 
+    createHeader, 
+    signInWithEmailAndPassword, 
+    auth, 
+    db, 
+    doc, 
+    getDoc, 
+    loginTeacher 
+} from "../shared/app-core.js";
+
+// Only inject the header on the login page (do not inject footer since it's an unauthenticated page)
+if (typeof createHeader === "function" && !document.querySelector("header")) {
+    try {
+        let headerElement = createHeader();
+        if (headerElement instanceof Promise) {
+            headerElement = await headerElement;
+        }
+        if (headerElement instanceof Node) {
+            document.body.prepend(headerElement);
+        } else if (typeof headerElement === "string") {
+            const tempDiv = document.createElement("div");
+            tempDiv.innerHTML = headerElement;
+            if (tempDiv.firstElementChild) {
+                document.body.prepend(tempDiv.firstElementChild);
+            }
+        }
+    } catch (err) {
+        console.error("Error auto-injecting header:", err);
+    }
+}
+
+try {
+    await initAppCore();
+    console.log("app-core initialized successfully.");
+} catch (err) {
+    console.error(`Failed to initialize app-core: ${err.message}`);
+}
+
+const form = document.getElementById("teacher-login-form");
+const emailInput = document.getElementById("teacher-email");
+const passwordInput = document.getElementById("teacher-password");
+const loginButton = document.getElementById("login-button");
+const errorBox = document.getElementById("login-error");
+
+function showError(message) {
+    errorBox.textContent = message;
+    errorBox.classList.add("show");
+    console.error(message);
+}
+
+function clearError() {
+    errorBox.textContent = "";
+    errorBox.classList.remove("show");
+}
+
+form.addEventListener("submit", async event => {
+    event.preventDefault();
+    clearError();
+
+    const email = emailInput.value.trim();
+    const password = passwordInput.value;
+
+    if (!email || !password) {
+        showError("Email and password are required.");
+        return;
+    }
+
+    loginButton.disabled = true;
+    loginButton.textContent = "Signing in...";
+    console.log(`Attempting sign-in for: ${email}`);
+
+    try {
+        // Authenticate with Firebase Auth
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const firebaseUser = userCredential.user;
+
+        console.log("Firebase auth successful. Fetching teacher profile...");
+
+        // Fetch additional teacher metadata from Firestore
+        const teacherDocRef = doc(db, "teachers", firebaseUser.uid);
+        const teacherDocSnap = await getDoc(teacherDocRef);
+
+        let teacherData = {
+            id: firebaseUser.uid,
+            email: firebaseUser.email,
+            name: firebaseUser.displayName || email.split("@")[0],
+            role: "teacher"
+        };
+
+        if (teacherDocSnap.exists()) {
+            teacherData = { ...teacherData, ...teacherDocSnap.data() };
+        }
+
+        // Save session using the App Core helper method
+        loginTeacher(teacherData);
+
+        console.log("Login successful! Redirecting to dashboard...");
+        window.location.replace("teacher-dashboard.html");
+    } catch (error) {
+        showError(error.message || "Unable to sign in.");
+    } finally {
+        loginButton.disabled = false;
+        loginButton.textContent = "Login";
+    }
+});
+</script>
+</body>
+</html>
+

@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Quiz Performance & Results</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Poppins', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen p-4 md:p-8 pb-32">
+
+    <div class="max-w-5xl mx-auto space-y-6">
+        
+        <!-- Top Header Card -->
+        <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <div class="flex items-center gap-3 flex-wrap">
+                    <span class="bg-blue-600 text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full text-white">Student Result Report</span>
+                    <span id="student-identity-badge" class="text-slate-500 text-sm font-medium">ID: <span id="header-student-id" class="text-slate-700 font-bold">Loading...</span></span>
+                </div>
+                <h1 id="quiz-title-display" class="text-2xl md:text-3xl font-extrabold text-slate-900 mt-1">Connecting to Firebase...</h1>
+            </div>
+            <div class="flex items-center gap-4 bg-slate-100 px-5 py-3 rounded-xl border border-slate-200 shadow-inner">
+                <div>
+                    <p class="text-xs text-slate-500 font-semibold uppercase">Session PIN</p>
+                    <p id="pin-display" class="text-xl font-black text-blue-600 tracking-wider">----</p>
+                </div>
+                <div class="h-8 w-px bg-slate-300"></div>
+                <div>
+                    <p class="text-xs text-slate-500 font-semibold uppercase">Total Questions</p>
+                    <p id="total-questions-display" class="text-xl font-black text-emerald-600">0</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Standalone Rank & Score Breakdown Layout Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <!-- 🏆 Standalone Rank Card (1 Column Width on Desktop) -->
+            <div class="bg-gradient-to-br from-amber-500 to-amber-600 text-white rounded-2xl p-5 shadow-sm flex flex-col justify-center items-center text-center border border-amber-400">
+                <span class="text-xs font-extrabold uppercase tracking-widest text-amber-100 mb-1">Your Rank</span>
+                <p id="student-rank-badge" class="text-3xl md:text-4xl font-black tracking-tight">#--</p>
+            </div>
+
+            <!-- Score Breakdown Cards (3 Columns Width on Desktop) -->
+            <div id="score-breakdown-card" class="md:col-span-3 grid grid-cols-3 gap-4 p-5 bg-white rounded-2xl border border-slate-200 shadow-sm items-center">
+                <div class="text-center">
+                    <span class="text-xs text-slate-500 uppercase font-semibold">Base Score</span>
+                    <p id="breakdown-base-val" class="text-xl font-extrabold text-blue-600">0 pts</p>
+                </div>
+                <div class="text-center border-x border-slate-200">
+                    <span class="text-xs text-slate-500 uppercase font-semibold">Fast Click Bonus</span>
+                    <p id="breakdown-fast-val" class="text-xl font-extrabold text-amber-600">0 pts</p>
+                </div>
+                <div class="text-center">
+                    <span class="text-xs text-slate-500 uppercase font-semibold">Total Combined</span>
+                    <p id="breakdown-total-val" class="text-xl font-extrabold text-emerald-600">0 pts</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detailed Breakdown Container -->
+        <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-4 border-b border-slate-200 gap-4">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-900">Question by Question Review</h2>
+                    <p class="text-xs text-slate-500">Review your answers, correct options, and question performance below.</p>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span id="summary-correct-badge" class="bg-emerald-50 border border-emerald-200 text-emerald-700 px-3 py-1 rounded-lg text-xs font-bold">Correct: 0</span>
+                    <span id="summary-incorrect-badge" class="bg-rose-50 border border-rose-200 text-rose-700 px-3 py-1 rounded-lg text-xs font-bold">Incorrect: 0</span>
+                    <button id="sort-mistakes-btn" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-200 transition ml-2">
+                        ⚠️ Sort: Mistakes First
+                    </button>
+                </div>
+            </div>
+
+            <div id="question-breakdown-container" class="mt-4 space-y-3">
+                <div class="text-center py-16 text-slate-400 text-sm">Loading your answers...</div>
+            </div>
+        </div>
+
+    </div>
+
+    <script type="module">
+        console.log("🔥 STRICT ID STUDENT RESULT SCRIPT INITIALIZING...");
+
+        try {
+            const appCore = await import("../shared/app-core.js");
+            const { initAppCore, db, doc, getDoc, collection, getDocs, query, where } = appCore;
+            
+            let routerModule = null;
+            try {
+                routerModule = await import("./student-router.js");
+            } catch (err) {}
+            const initStudentGameListener = routerModule?.initStudentGameListener || routerModule?.default;
+
+            const coreResult = initAppCore();
+            if (coreResult instanceof Promise) await coreResult;
+            console.log("✅ App core initialized successfully");
+
+            const urlParams = new URLSearchParams(window.location.search);
+            let pin = urlParams.get("pin");
+            let studentId = urlParams.get("id");
+            let nickname = urlParams.get("nickname");
+
+            let localSession = JSON.parse(localStorage.getItem("kahootlive_student") || "{}");
+            pin = pin || localSession.pin;
+            studentId = studentId || localSession.studentId || localSession.id;
+            nickname = nickname || localSession.nickname || localSession.name;
+
+            // --- STRICT VERIFICATION GUARD FOR STUDENT NAME ---
+            if (!nickname || nickname.trim() === "" || nickname === "undefined" || nickname === "null") {
+                console.warn("⚠️ No student name found in URL parameters or localStorage. Redirecting to login screen...");
+                localStorage.removeItem("kahootlive_student");
+                window.location.href = "student-login.html";
+                throw new Error("Missing student name. Redirecting to student-login.html.");
+            }
+
+            // Sync back to local session so subsequent pages have it
+            localSession.pin = pin;
+            localSession.studentId = studentId;
+            localSession.nickname = nickname;
+            localStorage.setItem("kahootlive_student", JSON.stringify(localSession));
+
+            document.getElementById("pin-display").textContent = pin || "N/A";
+            document.getElementById("header-student-id").textContent = `${nickname} (${studentId || "Unknown ID"})`;
+
+            if (!pin) {
+                alert("Missing session PIN!");
+                window.location.href = "student-login.html";
+                throw new Error("Missing PIN.");
+            }
+
+            console.log(`📌 Target Session PIN: ${pin}, Student: ${nickname} (${studentId})`);
+
+            if (typeof initStudentGameListener === "function") {
+                initStudentGameListener(pin);
+            }
+
+            // 1. Fetch game session data
+            const sessionRef = doc(db, "game_sessions", pin);
+            const sessionSnap = await getDoc(sessionRef);
+
+            if (!sessionSnap.exists()) {
+                throw new Error(`Session ${pin} not found in database.`);
+            }
+
+            const sessionData = sessionSnap.data();
+            document.getElementById("quiz-title-display").textContent = sessionData.title || sessionData.name || "Live Quiz Session";
+            const questions = Array.isArray(sessionData.questions) ? sessionData.questions : [];
+            document.getElementById("total-questions-display").textContent = questions.length;
+
+            // 2. Fetch specific student's submitted answers from the nested subcollection path: game_sessions/{pin}/scores/{studentId}/answers
+            let studentAnswersMap = {};
+            try {
+                const answersSubcollectionRef = collection(db, "game_sessions", pin, "scores", studentId, "answers");
+                const answersSnap = await getDocs(answersSubcollectionRef);
+                
+                answersSnap.forEach(ansDoc => {
+                    const ans = ansDoc.data();
+                    const qIndex = ans.questionIndex !== undefined ? ans.questionIndex : Number(ansDoc.id);
+                    studentAnswersMap[qIndex] = ans;
+                });
+                console.log(`📝 Loaded ${Object.keys(studentAnswersMap).length} nested answer documents for studentId: ${studentId}`);
+            } catch (ansErr) {
+                console.warn("⚠️ Nested answers subcollection query failed:", ansErr);
+            }
+
+            // Fallback to local storage answers if Firestore subcollection didn't return them
+            const localAnswers = JSON.parse(localStorage.getItem(`kahoot_answers_${pin}_${studentId}`) || "{}");
+            for (let qIdx in localAnswers) {
+                if (!studentAnswersMap[qIdx]) {
+                    studentAnswersMap[qIdx] = {
+                        answer: localAnswers[qIdx],
+                        isCorrect: String(localAnswers[qIdx]).trim().toLowerCase() === String(questions[qIdx]?.correct_text || questions[qIdx]?.correctAnswer || "").trim().toLowerCase(),
+                        score: 1200,
+                        fastScore: 200
+                    };
+                }
+            }
+
+            // 3. Fetch score document directly using studentId
+            let totalBase = 0;
+            let totalFast = 0;
+            let totalCombined = 0;
+            let studentRank = "--"; // Default rank placeholder
+            let correctCount = 0;
+            let incorrectCount = 0;
+
+            try {
+                const scoreDocRef = doc(db, "game_sessions", pin, "scores", studentId);
+                const scoreSnap = await getDoc(scoreDocRef);
+                if (scoreSnap.exists()) {
+                    const data = scoreSnap.data();
+                    totalBase = Number(data.base || 0);
+                    totalFast = Number(data.fast || 0);
+                    totalCombined = Number(data.total || 0);
+                    
+                    // 🏆 Extract rank written by teacher/host script
+                    if (data.rank !== undefined && data.rank !== null) {
+                        studentRank = data.rank;
+                    }
+
+                    console.log(`🏆 Successfully loaded score document for studentId: ${studentId}`, data);
+                } else {
+                    console.warn(`⚠️ No direct score document found for studentId: ${studentId}. Calculating from answers...`);
+                }
+            } catch (err) {
+                console.warn("⚠️ Score doc direct read failed, calculating from answers...", err);
+            }
+
+            // Update the Standalone Rank Badge UI Element
+            const rankBadgeEl = document.getElementById("student-rank-badge");
+            if (rankBadgeEl) {
+                rankBadgeEl.textContent = `#${studentRank}`;
+            }
+
+            // Build question items review array
+            let questionItems = questions.map((q, idx) => {
+                const ansData = studentAnswersMap[idx];
+                const isAnswered = Boolean(ansData);
+                const correctVal = String(q.correct_text ?? q.correctAnswer ?? q.answer ?? q.correct ?? "").trim();
+                
+                let isCorrect = false;
+                if (isAnswered) {
+                    isCorrect = ansData.isCorrect !== undefined ? Boolean(ansData.isCorrect) : (String(ansData.answer).trim().toLowerCase() === correctVal.toLowerCase());
+                }
+
+                if (isAnswered) {
+                    if (isCorrect) correctCount++;
+                    else incorrectCount++;
+                } else {
+                    incorrectCount++;
+                }
+
+                const qBase = isCorrect ? 1000 : 0;
+                const qFast = isAnswered && ansData.fastScore !== undefined ? ansData.fastScore : (isCorrect ? 200 : 0);
+                const qTotal = isAnswered && (ansData.totalScore !== undefined ? ansData.totalScore : ansData.score) !== undefined ? (ansData.totalScore !== undefined ? ansData.totalScore : ansData.score) : (qBase + qFast);
+
+                // If score doc didn't exist, accumulate dynamically
+                if (totalCombined === 0 && isAnswered) {
+                    totalBase += qBase;
+                    totalFast += qFast;
+                    totalCombined += qTotal;
+                }
+
+                return {
+                    questionIndex: idx,
+                    questionText: q.question || q.text || `Question ${idx + 1}`,
+                    correctText: correctVal || "N/A",
+                    studentAnswer: isAnswered ? ansData.answer : "No Answer Submitted",
+                    isCorrect: isCorrect,
+                    isAnswered: isAnswered,
+                    base: qBase,
+                    fast: qFast,
+                    total: qTotal
+                };
+            });
+
+            // Update Header Score Boxes
+            document.getElementById("breakdown-base-val").textContent = `${totalBase} pts`;
+            document.getElementById("breakdown-fast-val").textContent = `${totalFast} pts`;
+            document.getElementById("breakdown-total-val").textContent = `${totalCombined} pts`;
+
+            document.getElementById("summary-correct-badge").textContent = `Correct: ${correctCount}`;
+            document.getElementById("summary-incorrect-badge").textContent = `Incorrect: ${incorrectCount}`;
+
+            let sortMistakesFirst = false;
+            const sortBtn = document.getElementById("sort-mistakes-btn");
+            sortBtn.addEventListener("click", () => {
+                sortMistakesFirst = !sortMistakesFirst;
+                sortBtn.textContent = sortMistakesFirst ? "⚡ Sort: Standard Order" : "⚠️ Sort: Mistakes First";
+                renderQuestions(questionItems, sortMistakesFirst);
+            });
+
+            renderQuestions(questionItems, false);
+
+            function renderQuestions(items, sortMistakes) {
+                const container = document.getElementById("question-breakdown-container");
+                container.innerHTML = "";
+
+                let displayArray = [...items];
+                if (sortMistakes) {
+                    displayArray.sort((a, b) => (a.isCorrect === b.isCorrect) ? a.questionIndex - b.questionIndex : (a.isCorrect ? 1 : -1));
+                } else {
+                    displayArray.sort((a, b) => a.questionIndex - b.questionIndex);
+                }
+
+                displayArray.forEach(item => {
+                    const card = document.createElement("div");
+                    card.className = `p-4 rounded-xl border transition ${item.isCorrect ? 'bg-emerald-50/50 border-emerald-200' : 'bg-rose-50/50 border-rose-200'}`;
+
+                    card.innerHTML = `
+                        <div class="flex justify-between items-start gap-2 mb-2">
+                            <span class="text-xs font-extrabold uppercase tracking-wider text-slate-500">Question ${item.questionIndex + 1}</span>
+                            <span class="px-2.5 py-0.5 rounded-md text-xs font-bold ${item.isCorrect ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-rose-100 text-rose-800 border border-rose-200'}">
+                                ${item.isCorrect ? '✅ Correct' : '❌ Incorrect'}
+                            </span>
+                        </div>
+                        <h4 class="text-sm font-bold text-slate-900 mb-3">${escapeHtml(item.questionText)}</h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs mb-3 bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                            <div>
+                                <span class="text-slate-500 block font-medium">Your Answer:</span>
+                                <span class="font-bold ${item.isCorrect ? 'text-emerald-700' : 'text-rose-700'}">${escapeHtml(item.studentAnswer)}</span>
+                            </div>
+                            <div>
+                                <span class="text-slate-500 block font-medium">Correct Answer:</span>
+                                <span class="font-bold text-slate-800">${escapeHtml(item.correctText)}</span>
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center pt-2 border-t border-slate-200 text-xs text-slate-500">
+                            <div>Score Earned: <strong class="text-slate-800">${item.total} pts</strong></div>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            }
+
+            function escapeHtml(str) {
+                return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+            }
+
+        } catch (e) {
+            console.error("FATAL STUDENT RESULT SCRIPT ERROR:", e);
+            document.getElementById("quiz-title-display").textContent = "Error Loading Student Results";
+        }
+    </script>
+</body>
+</html>
+

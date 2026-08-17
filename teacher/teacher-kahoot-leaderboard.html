@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="theme-color" content="#2563eb">
+<title>Leaderboard — KahootLive</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+    body { font-family: 'Poppins', sans-serif; background: #f8fafc; color: #1e293b; }
+</style>
+</head>
+<body class="min-h-screen p-4 md:p-8 pb-32">
+
+    <div class="max-w-4xl mx-auto space-y-6">
+        
+        <!-- Header Section -->
+        <div class="bg-white border-2 border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <div class="flex items-center gap-3 flex-wrap">
+                    <span class="bg-amber-500 text-xs font-extrabold uppercase tracking-wider px-3 py-1 rounded-full text-white shadow-sm">🏆 Top 5 Live Leaderboard</span>
+                    <span class="text-slate-500 text-sm font-medium">PIN: <span id="header-pin-display" class="text-slate-700 font-black">------</span></span>
+                </div>
+                <h1 id="quiz-title-display" class="text-2xl md:text-3xl font-extrabold text-slate-900 mt-1">Loading Leaderboard...</h1>
+            </div>
+            <div class="flex items-center gap-3">
+                <button id="next-question-btn" class="bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm px-5 py-3 rounded-xl transition shadow-md active:scale-95">
+                    ▶️ Next Question / Control
+                </button>
+            </div>
+        </div>
+
+        <!-- Leaderboard List Card (Top 5) -->
+        <div class="bg-white border-2 border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col">
+            <div class="flex justify-between items-center pb-4 border-b border-slate-200 mb-4">
+                <h2 class="text-xl font-bold text-slate-900">Top 5 Rankings</h2>
+                <span id="total-students-badge" class="bg-slate-100 text-slate-700 px-3 py-1 rounded-lg text-xs font-bold border border-slate-200">Total Participants: 0</span>
+            </div>
+
+            <div id="leaderboard-container" class="space-y-3">
+                <div class="text-center py-16 text-slate-400 text-sm">Loading leaderboard rankings...</div>
+            </div>
+        </div>
+
+        <!-- Detailed Student Question-by-Question Result Section -->
+        <div class="bg-white border-2 border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col space-y-4">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-4 border-b border-slate-200">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-900">Detailed Student Answers</h2>
+                    <p class="text-xs text-slate-500 mt-0.5">Select a student to view question-by-question mistakes first</p>
+                </div>
+                <div class="w-full md:w-72">
+                    <select id="student-selector" class="w-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-800 outline-none focus:border-blue-600 transition cursor-pointer">
+                        <option value="">-- Choose a Student --</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="student-details-container" class="space-y-3">
+                <div class="text-center py-12 text-slate-400 text-sm">Please select a student above to inspect their performance.</div>
+            </div>
+        </div>
+
+    </div>
+
+    <script type="module">
+        import { 
+            initAppCore, 
+            requireTeacher, 
+            db, 
+            doc, 
+            getDoc, 
+            collection, 
+            getDocs, 
+            setDoc,
+            onSnapshot 
+        } from "../shared/app-core.js";
+
+        let allStudentsData = [];
+        let sessionQuestions = [];
+
+        async function initLeaderboard() {
+            try {
+                await initAppCore();
+                requireTeacher();
+
+                const urlParams = new URLSearchParams(window.location.search);
+                const pin = urlParams.get("pin");
+
+                if (!pin) {
+                    alert("Missing session PIN!");
+                    window.location.href = "teacher-dashboard.html";
+                    return;
+                }
+
+                document.getElementById("header-pin-display").textContent = pin;
+
+                const sessionRef = doc(db, "game_sessions", pin);
+                const sessionSnap = await getDoc(sessionRef);
+
+                if (sessionSnap.exists()) {
+                    const sessionData = sessionSnap.data();
+                    document.getElementById("quiz-title-display").textContent = sessionData.title || sessionData.name || "Live Quiz Session";
+                    if (Array.isArray(sessionData.questions)) {
+                        sessionQuestions = sessionData.questions;
+                    }
+                }
+
+                // Redirect button back to host screen or control panel
+                document.getElementById("next-question-btn").addEventListener("click", () => {
+                    window.location.href = `teacher-kahoot-host.html?pin=${encodeURIComponent(pin)}`;
+                });
+
+                const scoresRef = collection(db, "game_sessions", pin, "scores");
+
+                // Live listener for scores collection to dynamically calculate and update ranks in real time
+                onSnapshot(scoresRef, async (snapshot) => {
+                    allStudentsData = [];
+                    
+                    for (const docSnap of snapshot.docs) {
+                        const data = docSnap.data();
+                        
+                        // Fetch individual answers subcollection if available per student
+                        let answersMap = {};
+                        try {
+                            const answersRef = collection(db, "game_sessions", pin, "scores", docSnap.id, "answers");
+                            const answersSnap = await getDocs(answersRef);
+                            answersSnap.forEach(ansDoc => {
+                                answersMap[ansDoc.id] = ansDoc.data();
+                            });
+                        } catch (e) {
+                            // Subcollection might not exist or empty
+                        }
+
+                        allStudentsData.push({
+                            id: docSnap.id,
+                            nickname: data.nickname || data.name || `Student ${docSnap.id.substring(0, 5)}`,
+                            base: Number(data.base || 0),
+                            fast: Number(data.fast || 0),
+                            total: Number(data.total || 0),
+                            answers: answersMap
+                        });
+                    }
+
+                    // Sort descending by total score
+                    allStudentsData.sort((a, b) => b.total - a.total);
+
+                    // Assign ranks and save them back to Firestore score docs
+                    let batchUpdates = [];
+                    allStudentsData.forEach((student, index) => {
+                        const rank = index + 1;
+                        student.rank = rank;
+                        const studentScoreRef = doc(db, "game_sessions", pin, "scores", student.id);
+                        batchUpdates.push(
+                            setDoc(studentScoreRef, { rank: rank }, { merge: true })
+                        );
+                    });
+
+                    Promise.all(batchUpdates).catch(err => console.warn("Failed to sync student ranks:", err));
+
+                    renderLeaderboard(allStudentsData);
+                    populateStudentDropdown(allStudentsData);
+                    
+                    // Refresh student details view if a student is currently selected
+                    const currentSelectedId = document.getElementById("student-selector").value;
+                    if (currentSelectedId) {
+                        const currentSelectedStudent = allStudentsData.find(s => s.id === currentSelectedId);
+                        renderStudentDetails(currentSelectedStudent);
+                    }
+                });
+
+                // Dropdown change listener
+                document.getElementById("student-selector").addEventListener("change", (e) => {
+                    const selectedId = e.target.value;
+                    const selectedStudent = allStudentsData.find(s => s.id === selectedId);
+                    renderStudentDetails(selectedStudent);
+                });
+
+            } catch (err) {
+                console.error("Fatal Leaderboard Error:", err);
+                document.getElementById("quiz-title-display").textContent = "Error Loading Leaderboard";
+            }
+        }
+
+        function renderLeaderboard(students) {
+            const container = document.getElementById("leaderboard-container");
+            const totalBadge = document.getElementById("total-students-badge");
+            totalBadge.textContent = `Total Participants: ${students.length}`;
+
+            if (students.length === 0) {
+                container.innerHTML = `<div class="text-center py-16 text-slate-400 text-sm">No student score records found for this session yet.</div>`;
+                return;
+            }
+
+            container.innerHTML = "";
+
+            // Display ONLY Top 5 ranks
+            const top5Students = students.slice(0, 5);
+
+            top5Students.forEach((student, index) => {
+                const rank = index + 1;
+                const card = document.createElement("div");
+                
+                let rankBadgeBg = "bg-slate-100 text-slate-700 border-slate-200";
+                if (rank === 1) rankBadgeBg = "bg-amber-500 text-white border-amber-600 shadow-sm";
+                else if (rank === 2) rankBadgeBg = "bg-slate-300 text-slate-900 border-slate-400 shadow-sm";
+                else if (rank === 3) rankBadgeBg = "bg-amber-700 text-white border-amber-800 shadow-sm";
+
+                card.className = "flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl shadow-sm hover:border-slate-300 transition";
+
+                card.innerHTML = `
+                    <div class="flex items-center gap-4">
+                        <span class="w-10 h-10 flex items-center justify-center rounded-xl font-black text-sm border ${rankBadgeBg}">
+                            #${rank}
+                        </span>
+                        <div>
+                            <h3 class="font-bold text-slate-900 text-base">${escapeHtml(student.nickname)}</h3>
+                            <p class="text-xs text-slate-500">ID: ${escapeHtml(student.id)}</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-lg font-black text-emerald-600">${student.total} pts</p>
+                        <p class="text-xs text-slate-400 font-medium">Base: ${student.base} | Fast: ${student.fast}</p>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function populateStudentDropdown(students) {
+            const selector = document.getElementById("student-selector");
+            const currentSelection = selector.value;
+            
+            selector.innerHTML = `<option value="">-- Choose a Student --</option>`;
+            students.forEach(student => {
+                const opt = document.createElement("option");
+                opt.value = student.id;
+                opt.textContent = `${student.nickname} (Rank #${student.rank} - ${student.total} pts)`;
+                if (student.id === currentSelection) {
+                    opt.selected = true;
+                }
+                selector.appendChild(opt);
+            });
+        }
+
+        function renderStudentDetails(student) {
+            const container = document.getElementById("student-details-container");
+            if (!student) {
+                container.innerHTML = `<div class="text-center py-12 text-slate-400 text-sm">Please select a student above to inspect their performance.</div>`;
+                return;
+            }
+
+            if (!sessionQuestions || sessionQuestions.length === 0) {
+                container.innerHTML = `<div class="text-center py-12 text-slate-400 text-sm">No questionnaire mapping found for this session.</div>`;
+                return;
+            }
+
+            // Build question performance array and sort mistakes first
+            let evaluatedQuestions = sessionQuestions.map((q, idx) => {
+                const qKey = String(idx);
+                const ansData = student.answers[qKey] || {};
+                const studentAnswer = String(ansData.answer || ansData.selected || ansData.option || "No Answer").trim();
+                const correctText = String(q.correct_text ?? q.correctAnswer ?? q.answer ?? q.correct ?? "").trim();
+                
+                const isCorrect = studentAnswer.toLowerCase() === correctText.toLowerCase() && studentAnswer !== "No Answer";
+
+                return {
+                    index: idx + 1,
+                    questionText: q.question || q.text || q.prompt || `Question ${idx + 1}`,
+                    studentAnswer: studentAnswer,
+                    correctText: correctText || "N/A",
+                    isCorrect: isCorrect,
+                    timeTaken: ansData.timeTaken || ansData.time || "--"
+                };
+            });
+
+            // Sort so mistakes (isCorrect === false) appear first
+            evaluatedQuestions.sort((a, b) => (a.isCorrect === b.isCorrect)? 0 : a.isCorrect ? 1 : -1);
+
+            container.innerHTML = "";
+
+            evaluatedQuestions.forEach(item => {
+                const card = document.createElement("div");
+                const statusBg = item.isCorrect 
+                    ? "bg-emerald-50 border-emerald-200 text-emerald-900" 
+                    : "bg-rose-50 border-rose-200 text-rose-900";
+                
+                const badgeText = item.isCorrect ? "✅ Correct" : "❌ Mistake";
+                const badgeColor = item.isCorrect ? "bg-emerald-600 text-white" : "bg-rose-600 text-white";
+
+                card.className = `p-4 border-2 rounded-xl flex flex-col gap-2 ${statusBg} transition`;
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-start gap-3">
+                        <span class="text-xs font-black uppercase tracking-wider px-2.5 py-1 rounded-lg ${badgeColor}">
+                            Q${item.index} • ${badgeText}
+                        </span>
+                        <span class="text-xs font-bold opacity-75">Time: ${item.timeTaken}s</span>
+                    </div>
+                    <h3 class="font-bold text-base text-slate-900 mt-1">${escapeHtml(item.questionText)}</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs font-semibold mt-2 pt-2 border-t border-black/10">
+                        <div>Student Answer: <span class="font-bold ${item.isCorrect ? 'text-emerald-700' : 'text-rose-700'}">${escapeHtml(item.studentAnswer)}</span></div>
+                        <div>Correct Answer: <span class="font-bold text-slate-800">${escapeHtml(item.correctText)}</span></div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function escapeHtml(str) {
+            return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        initLeaderboard();
+    </script>
+</body>
+</html>
+
+

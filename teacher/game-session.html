@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="theme-color" content="#2563eb">
+<title>Game Sessions — KahootLive Teacher</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;width:100%;min-height:100%}
+body{min-height:100vh;display:flex;flex-direction:column;background:#f8fafc;font-family:Roboto,Arial,sans-serif;color:#1e293b}
+.dashboard-wrapper{flex:1;display:flex;flex-direction:column;max-width:900px;width:100%;margin:0 auto;padding:24px 16px;gap:20px;padding-bottom:120px}
+
+.dash-header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
+.dash-header h1{margin:0;font-size:24px;font-weight:800;color:#2563eb}
+.session-count-badge{background:#eff6ff;color:#1d4ed8;padding:8px 14px;border-radius:12px;font-weight:800;font-size:15px;border:1px solid #bfdbfe}
+
+.card{background:#ffffff;border-radius:20px;padding:24px;box-shadow:0 8px 24px rgba(0,0,0,.06);border:1px solid #e2e8f0;width:100%;display:flex;flex-direction:column;gap:16px}
+
+/* Responsive Card List Layout */
+.sessions-list-container{display:flex;flex-direction:column;gap:16px;width:100%}
+
+.session-item-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:14px;transition:all 0.2s ease}
+.session-item-card:hover{border-color:#cbd5e1;box-shadow:0 4px 12px rgba(0,0,0,0.03)}
+
+.session-card-top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.pin-pill{background:#eff6ff;color:#1d4ed8;padding:6px 12px;border-radius:10px;font-size:14px;font-weight:800;border:1px solid #bfdbfe;display:inline-block;letter-spacing:1px}
+
+.quiz-title-text{font-size:18px;font-weight:800;color:#0f172a;line-height:1.4;margin:0}
+
+.session-card-details{display:flex;flex-wrap:wrap;gap:16px;font-size:13px;font-weight:700;color:#64748b;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;padding:12px 0;flex-direction:column;gap:8px}
+.detail-row{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.detail-item{display:flex;align-items:center;gap:6px}
+.detail-item span{color:#334155;font-weight:800}
+
+/* Live Card Timer Bar */
+.card-timer-track{width:100%;height:10px;background:#e2e8f0;border-radius:5px;overflow:hidden;position:relative;margin-top:2px}
+.card-timer-fill{position:absolute;top:0;left:0;height:100%;width:100%;background:#22c55e;border-radius:5px;transition:width 0.3s linear, background-color 0.3s}
+
+/* Control Options Grid Inside Card */
+.controls-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:600px){.controls-grid{grid-template-columns:1fr}}
+
+.control-group{display:flex;flex-direction:column;gap:6px}
+.control-group label{font-size:12px;font-weight:800;color:#475569}
+.control-select{width:100%;padding:10px;border:2px solid #cbd5e1;border-radius:10px;font-size:14px;font-weight:700;font-family:inherit;color:#0f172a;background:#fff;outline:none;cursor:pointer}
+.control-select:focus{border-color:#2563eb}
+
+.card-actions{display:flex;gap:10px;margin-top:4px;flex-wrap:wrap}
+@media(max-width:500px){.card-actions{flex-direction:column}}
+
+.action-btn{background:#2563eb;color:#fff;border:0;border-radius:12px;padding:12px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 4px 12px rgba(37,99,235,0.2);text-decoration:none;display:block;text-align:center;flex:1;transition:transform 0.1s}
+.action-btn:active{transform:scale(.98)}
+
+.pause-btn{background:#e2e8f0;color:#334155;box-shadow:0 4px 12px rgba(0,0,0,0.06);border:1px solid #cbd5e1;flex:1}
+.pause-btn:hover{background:#cbd5e1}
+.pause-btn.paused{background:#fee2e2;color:#991b1b;border-color:#fca5a5;box-shadow:0 4px 12px rgba(153,27,27,0.15)}
+
+.reset-play-btn{background:#0d9488;color:#fff;box-shadow:0 4px 12px rgba(13,148,136,0.2);flex:1}
+.reset-play-btn:hover{background:#0f766e}
+
+.leaderboard-btn{background:#d97706;box-shadow:0 4px 12px rgba(217,119,6,0.2);flex:1}
+.leaderboard-btn:hover{background:#b45309}
+
+.delete-btn{background:#ef4444;box-shadow:0 4px 12px rgba(239,68,68,0.2);flex:unset;padding:12px 18px}
+
+.empty-state{text-align:center;padding:32px;color:#64748b;font-weight:700;font-size:16px}
+
+.status-message{display:none;padding:14px;border-radius:12px;font-size:14px;font-weight:700;text-align:center;width:100%}
+.status-message.error{display:block;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5}
+.status-message.info{display:block;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe}
+.status-message.success{display:block;background:#dcfce7;color:#166534;border:1px solid #86efac}
+
+#toast {
+    position: fixed;
+    bottom: 90px;
+    left: 50%;
+    transform: translateX(-50%) translateY(120px);
+    background: #0f172a;
+    color: #fff;
+    padding: 12px 24px;
+    border-radius: 30px;
+    font-size: 14px;
+    font-weight: 700;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s ease;
+    opacity: 0;
+    z-index: 999999;
+    pointer-events: none;
+    text-align: center;
+}
+#toast.show {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+}
+</style>
+</head>
+<body>
+
+<main class="dashboard-wrapper">
+<div class="dash-header">
+<h1>All Game Sessions</h1>
+<div id="session-count" class="session-count-badge">Total: 0</div>
+</div>
+
+<div id="status-box" class="status-message"></div>
+
+<div class="card">
+<div id="sessions-container" class="sessions-list-container">
+<div class="empty-state">Loading game sessions...</div>
+</div>
+</div>
+</main>
+
+<div id="toast">Changes saved</div>
+
+<script type="module">
+import { 
+    initAppCore, 
+    requireTeacher, 
+    db, 
+    collection, 
+    doc, 
+    setDoc, 
+    deleteDoc, 
+    query, 
+    onSnapshot,
+    getDocs 
+} from "../shared/app-core.js";
+
+try {
+    await initAppCore();
+    requireTeacher();
+
+    const statusBox = document.getElementById("status-box");
+    const sessionCountBadge = document.getElementById("session-count");
+    const sessionsContainer = document.getElementById("sessions-container");
+    const toastEl = document.getElementById("toast");
+
+    let isInitialLoad = true;
+    const activeTimers = {}; 
+    const scoreListeners = {}; 
+
+    function showStatus(message, type = "info") {
+        statusBox.textContent = message;
+        statusBox.className = `status-message ${type}`;
+    }
+
+    function showToast(message) {
+        toastEl.textContent = message;
+        toastEl.classList.add("show");
+        setTimeout(() => {
+            toastEl.classList.remove("show");
+        }, 2200);
+    }
+
+    function subscribeGameSessions() {
+        try {
+            const sessionsColRef = collection(db, "game_sessions");
+            const q = query(sessionsColRef);
+
+            onSnapshot(q, (querySnapshot) => {
+                if (querySnapshot.empty) {
+                    sessionsContainer.innerHTML = `<div class="empty-state">No active game sessions found.</div>`;
+                    sessionCountBadge.textContent = "Total: 0";
+                    clearAllCardTimers();
+                    clearAllScoreListeners();
+                    isInitialLoad = false;
+                    return;
+                }
+
+                let html = "";
+                let count = 0;
+                const activePinsInSnapshot = new Set();
+
+                querySnapshot.forEach((docSnap) => {
+                    const data = docSnap.data();
+                    const pin = data.pin || docSnap.id;
+                    activePinsInSnapshot.add(pin);
+
+                    setupSessionAutomation(pin, data);
+
+                    const name = data.name || data.quizTitle || "Untitled Quiz";
+                    const gradeName = data.gradeName || "N/A";
+                    const questionCount = data.questionCount || (Array.isArray(data.questions) ? data.questions.length : "--");
+                    
+                    const currentGameMode = data.gameMode || "lobby";
+                    const currentTimePerQ = data.timePerQuestion || 10;
+                    const isPaused = Boolean(data.timerpauce);
+                    const currentQIndex = typeof data.currentQuestionIndex === "number" ? data.currentQuestionIndex + 1 : 1;
+                    const timeLeft = typeof data.timeLeft === "number" ? data.timeLeft : currentTimePerQ;
+
+                    setupCardTimer(pin, timeLeft, currentTimePerQ, isPaused, data);
+
+                    html += `
+                        <div class="session-item-card" data-card-pin="${escapeHTML(pin)}">
+                            <div class="session-card-top">
+                                <span class="pin-pill">PIN: ${escapeHTML(pin)}</span>
+                            </div>
+                            <h3 class="quiz-title-text">${escapeHTML(name)}</h3>
+                            
+                            <div class="session-card-details">
+                                <div class="detail-row">
+                                    <div class="detail-item">Grade: <span>${escapeHTML(gradeName)}</span></div>
+                                    <div class="detail-item">Question: <span class="live-q-idx" data-pin="${escapeHTML(pin)}">${currentQIndex}/${questionCount}</span></div>
+                                    <div class="detail-item">Timer: <span class="live-timer" data-pin="${escapeHTML(pin)}">${timeLeft}s ${isPaused ? '(Paused)' : ''}</span></div>
+                                </div>
+                                <div class="card-timer-track">
+                                    <div class="card-timer-fill" data-timer-fill="${escapeHTML(pin)}" style="width: ${(Math.max(0, timeLeft) / currentTimePerQ) * 100}%;"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="controls-grid">
+                                <div class="control-group">
+                                    <label>Game Mode</label>
+                                    <select class="control-select mode-select" data-pin="${escapeHTML(pin)}">
+                                        <option value="lobby" ${currentGameMode === 'lobby' ? 'selected' : ''}>Lobby</option>
+                                        <option value="playing" ${currentGameMode === 'playing' ? 'selected' : ''}>Playing</option>
+                                        <option value="leaderboard" ${currentGameMode === 'leaderboard' ? 'selected' : ''}>Leaderboard</option>
+                                    </select>
+                                </div>
+                                <div class="control-group">
+                                    <label>Timer Per Question</label>
+                                    <select class="control-select time-select" data-pin="${escapeHTML(pin)}">
+                                        <option value="5" ${currentTimePerQ == 5 ? 'selected' : ''}>5 Seconds</option>
+                                        <option value="10" ${currentTimePerQ == 10 ? 'selected' : ''}>10 Seconds</option>
+                                        <option value="15" ${currentTimePerQ == 15 ? 'selected' : ''}>15 Seconds</option>
+                                        <option value="20" ${currentTimePerQ == 20 ? 'selected' : ''}>20 Seconds</option>
+                                        <option value="30" ${currentTimePerQ == 30 ? 'selected' : ''}>30 Seconds</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="card-actions">
+                                <a href="teacher-kahoot-setup.html?pin=${encodeURIComponent(pin)}&name=${encodeURIComponent(name)}&gradename=${encodeURIComponent(gradeName)}" class="action-btn">🚀 Setup</a>
+                                <button type="button" class="action-btn pause-btn ${isPaused ? 'paused' : ''}" data-pause-pin="${escapeHTML(pin)}" data-paused="${isPaused}">${isPaused ? '▶️ Resume' : '⏸️ Pause'}</button>
+                                <button type="button" class="action-btn reset-play-btn" data-reset-pin="${escapeHTML(pin)}" data-time="${currentTimePerQ}">🔄 Reset Play</button>
+                                <a href="teacher-kahoot-leaderboard.html?pin=${encodeURIComponent(pin)}" class="action-btn leaderboard-btn">🏆 Scores</a>
+                                <button type="button" class="action-btn delete-btn" data-delete-pin="${escapeHTML(pin)}">🗑️</button>
+                            </div>
+                        </div>
+                    `;
+                    count++;
+                });
+
+                sessionsContainer.innerHTML = html;
+                sessionCountBadge.textContent = `Total: ${count}`;
+                
+                Object.keys(activeTimers).forEach(pin => {
+                    if (!activePinsInSnapshot.has(pin)) {
+                        clearInterval(activeTimers[pin].interval);
+                        delete activeTimers[pin];
+                    }
+                });
+
+                Object.keys(scoreListeners).forEach(pin => {
+                    if (!activePinsInSnapshot.has(pin)) {
+                        scoreListeners[pin]();
+                        delete scoreListeners[pin];
+                    }
+                });
+
+                attachEventListeners();
+                isInitialLoad = false;
+
+            }, (error) => {
+                if (isInitialLoad) {
+                    showStatus(`Error loading sessions: ${error.message}`, "error");
+                    sessionsContainer.innerHTML = `<div class="empty-state">Failed to load game sessions.</div>`;
+                }
+            });
+
+        } catch (error) {
+            showStatus(`Error: ${error.message}`, "error");
+        }
+    }
+
+    function setupSessionAutomation(pin, sessionData) {
+        if (scoreListeners[pin]) return;
+
+        const scoresRef = collection(db, "game_sessions", pin, "scores");
+        scoreListeners[pin] = onSnapshot(scoresRef, async (snapshot) => {
+            if (snapshot.empty) return;
+
+            const studentsList = [];
+            snapshot.forEach(docSnap => {
+                const data = docSnap.data();
+                studentsList.push({
+                    id: docSnap.id,
+                    total: Number(data.total || 0)
+                });
+            });
+
+            studentsList.sort((a, b) => b.total - a.total);
+
+            let batchUpdates = [];
+            studentsList.forEach((student, index) => {
+                const rank = index + 1;
+                const studentScoreRef = doc(db, "game_sessions", pin, "scores", student.id);
+                batchUpdates.push(
+                    setDoc(studentScoreRef, { rank: rank }, { merge: true })
+                );
+            });
+
+            try {
+                await Promise.all(batchUpdates);
+            } catch (err) {
+                // Silent catch
+            }
+        }, (err) => {
+            // Silent catch
+        });
+    }
+
+    function setupCardTimer(pin, initialTimeLeft, totalDuration, isPaused, sessionData) {
+        if (activeTimers[pin]) {
+            clearInterval(activeTimers[pin].interval);
+        }
+
+        activeTimers[pin] = {
+            timeLeft: initialTimeLeft,
+            duration: totalDuration,
+            isPaused: isPaused,
+            interval: setInterval(async () => {
+                const timerEl = document.querySelector(`.live-timer[data-pin="${pin}"]`);
+                const fillEl = document.querySelector(`.card-timer-fill[data-timer-fill="${pin}"]`);
+
+                if (!timerEl || !fillEl) return;
+
+                if (!activeTimers[pin].isPaused && activeTimers[pin].timeLeft > 0) {
+                    activeTimers[pin].timeLeft--;
+                }
+
+                const current = activeTimers[pin].timeLeft;
+                const dur = activeTimers[pin].duration;
+                const pausedState = activeTimers[pin].isPaused;
+
+                timerEl.textContent = `${current}s ${pausedState ? '(Paused)' : ''}`;
+                
+                const percentage = Math.max(0, (current / dur) * 100);
+                fillEl.style.width = `${percentage}%`;
+
+                if (percentage <= 30 || current <= 3) {
+                    fillEl.style.backgroundColor = "#ef4444";
+                } else if (percentage <= 60) {
+                    fillEl.style.backgroundColor = "#eab308";
+                } else {
+                    fillEl.style.backgroundColor = "#22c55e";
+                }
+
+                if (current === 0 && !pausedState) {
+                    activeTimers[pin].isPaused = true;
+                    
+                    try {
+                        const questionsArr = sessionData.questions || [];
+                        const currentIndex = typeof sessionData.currentQuestionIndex === "number" ? sessionData.currentQuestionIndex : 0;
+                        const nextIndex = currentIndex + 1;
+
+                        if (nextIndex < questionsArr.length) {
+                            await setDoc(doc(db, "game_sessions", pin), {
+                                currentQuestionIndex: nextIndex,
+                                gameMode: "leaderboard",
+                                timeLeft: totalDuration,
+                                timerpauce: false,
+                                updatedAt: new Date().toISOString()
+                            }, { merge: true });
+                            showToast(`Question ${nextIndex + 1} loaded automatically!`);
+                        } else {
+                            await setDoc(doc(db, "game_sessions", pin), {
+                                gameMode: "leaderboard",
+                                status: "finished",
+                                timerpauce: true,
+                                updatedAt: new Date().toISOString()
+                            }, { merge: true });
+                            showToast("Quiz finished! Showing final leaderboard.");
+                        }
+                    } catch (err) {
+                        // Silent catch
+                    }
+                }
+            }, 1000)
+        };
+    }
+
+    function clearAllCardTimers() {
+        Object.values(activeTimers).forEach(t => clearInterval(t.interval));
+        for (let key in activeTimers) delete activeTimers[key];
+    }
+
+    function clearAllScoreListeners() {
+        Object.values(scoreListeners).forEach(unsubscribe => unsubscribe());
+        for (let key in scoreListeners) delete scoreListeners[key];
+    }
+
+    function attachEventListeners() {
+        document.querySelectorAll(".mode-select").forEach(select => {
+            select.removeEventListener("change", handleModeChange);
+            select.addEventListener("change", handleModeChange);
+        });
+
+        document.querySelectorAll(".time-select").forEach(select => {
+            select.removeEventListener("change", handleTimeChange);
+            select.addEventListener("change", handleTimeChange);
+        });
+
+        document.querySelectorAll(".pause-btn").forEach(btn => {
+            btn.removeEventListener("click", handlePauseClick);
+            btn.addEventListener("click", handlePauseClick);
+        });
+
+        document.querySelectorAll(".reset-play-btn").forEach(btn => {
+            btn.removeEventListener("click", handleResetPlayClick);
+            btn.addEventListener("click", handleResetPlayClick);
+        });
+
+        document.querySelectorAll(".delete-btn").forEach(btn => {
+            btn.removeEventListener("click", handleDeleteClick);
+            btn.addEventListener("click", handleDeleteClick);
+        });
+    }
+
+    async function handleModeChange(e) {
+        const pin = e.target.getAttribute("data-pin");
+        const newMode = e.target.value;
+        try {
+            await setDoc(doc(db, "game_sessions", pin), {
+                gameMode: newMode,
+                updatedAt: new Date().toISOString()
+            }, { merge: true });
+            showToast(`Mode updated to: ${newMode}`);
+        } catch (err) {
+            showStatus("Failed to update game mode.", "error");
+        }
+    }
+
+    async function handleTimeChange(e) {
+        const pin = e.target.getAttribute("data-pin");
+        const newTime = parseInt(e.target.value, 10);
+        try {
+            await setDoc(doc(db, "game_sessions", pin), {
+                timePerQuestion: newTime,
+                timeLeft: newTime,
+                updatedAt: new Date().toISOString()
+            }, { merge: true });
+            showToast(`Timer updated to ${newTime}s`);
+        } catch (err) {
+            showStatus("Failed to update timer.", "error");
+        }
+    }
+
+    async function handlePauseClick(e) {
+        const pin = e.target.getAttribute("data-pause-pin");
+        const currentPausedState = e.target.getAttribute("data-paused") === "true";
+        const newPausedState = !currentPausedState;
+
+        const currentRemainingTime = activeTimers[pin] ? activeTimers[pin].timeLeft : 10;
+
+        try {
+            await setDoc(doc(db, "game_sessions", pin), {
+                timerpauce: newPausedState,
+                timeLeft: currentRemainingTime,
+                updatedAt: new Date().toISOString()
+            }, { merge: true });
+
+            if (activeTimers[pin]) {
+                activeTimers[pin].isPaused = newPausedState;
+            }
+
+            e.target.setAttribute("data-paused", String(newPausedState));
+            if (newPausedState) {
+                e.target.textContent = "▶️ Resume";
+                e.target.classList.add("paused");
+                showToast("Timer paused");
+            } else {
+                e.target.textContent = "⏸️ Pause";
+                e.target.classList.remove("paused");
+                showToast("Timer resumed");
+            }
+        } catch (err) {
+            showStatus("Failed to update timer pause state.", "error");
+        }
+    }
+
+    async function handleResetPlayClick(e) {
+        const pin = e.target.getAttribute("data-reset-pin");
+        const timePerQuestion = parseInt(e.target.getAttribute("data-time") || "10", 10);
+
+        if (!confirm(`Are you sure you want to reset session PIN: ${pin} back to Question 1?`)) return;
+
+        try {
+            await setDoc(doc(db, "game_sessions", pin), {
+                currentQuestionIndex: 0,
+                gameMode: "playing",
+                status: "playing",
+                timerpauce: false,
+                timeLeft: timePerQuestion,
+                questionStartedAt: Date.now(),
+                updatedAt: new Date().toISOString()
+            }, { merge: true });
+
+            showToast("Game reset to 1st question successfully!");
+        } catch (err) {
+            showStatus("Failed to reset game session.", "error");
+        }
+    }
+
+    async function handleDeleteClick(e) {
+        const pin = e.target.getAttribute("data-delete-pin");
+        if (!confirm(`Are you sure you want to delete session PIN: ${pin}?`)) return;
+
+        try {
+            await deleteDoc(doc(db, "game_sessions", pin));
+            showToast("Session deleted successfully");
+        } catch (err) {
+            showStatus("Failed to delete session.", "error");
+        }
+    }
+
+    function escapeHTML(value) {
+        return String(value ?? "")
+            .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    subscribeGameSessions();
+
+} catch (e) {
+    const statusBox = document.getElementById("status-box");
+    if (statusBox) {
+        statusBox.textContent = `Initialization error: ${e.message}`;
+        statusBox.className = "status-message error";
+    }
+}
+</script>
+</body>
+</html>
+
