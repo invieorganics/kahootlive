@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "kahootlive",
     "public": "public",
     "ignore": [
       "firebase.json",

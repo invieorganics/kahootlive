@@ -17,5 +17,6 @@ jobs:
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_TOKEN }}
+          target: kahootlive
           channelId: live
           projectId: kahootlive-84b8f
