@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -66,7 +67,9 @@ import {
     requireTeacher, 
     db, 
     collection, 
-    onSnapshot 
+    onSnapshot, 
+    query, 
+    orderBy 
 } from "../shared/app-core.js";
 
 try {
@@ -92,46 +95,37 @@ try {
         pinDisplay.textContent = `PIN: ${sessionPin}`;
         
         const scoresColRef = collection(db, "game_sessions", sessionPin, "scores");
+        const scoresQuery = query(scoresColRef, orderBy("totalScore", "desc"));
 
-        // Removed strict server-side orderBy to prevent hiding documents missing totalScore, sorting client-side instead
-        onSnapshot(scoresColRef, (snapshot) => {
+        onSnapshot(scoresQuery, (snapshot) => {
             if (snapshot.empty) {
                 playersTbody.innerHTML = `<tr><td colspan="4" class="empty-state">No students have joined this session yet.</td></tr>`;
                 return;
             }
 
-            let players = [];
-            snapshot.forEach((docSnap) => {
-                const data = docSnap.data();
-                players.push({
-                    id: docSnap.id,
-                    studentId: data.studentId || docSnap.id,
-                    name: data.name || "Unknown",
-                    totalScore: data.totalScore ?? data.total ?? data.base ?? 0,
-                    avatar: data.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(data.name || "Unknown")}`
-                });
-            });
-
-            // Sort clientside by highest score descending
-            players.sort((a, b) => b.totalScore - a.totalScore);
-
             let html = "";
             let rankCounter = 1;
 
-            players.forEach((player) => {
+            snapshot.forEach((docSnap) => {
+                const data = docSnap.data();
+                const studentId = data.studentId || docSnap.id;
+                const name = data.name || "Unknown";
+                const totalScore = data.totalScore || 0;
+                const avatar = data.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(name)}`;
+
                 html += `
                     <tr>
                         <td>#${rankCounter}</td>
                         <td>
                             <div class="player-avatar-cell">
                                 <div class="table-avatar">
-                                    <img src="${escapeHTML(player.avatar)}" alt="Avatar">
+                                    <img src="${escapeHTML(avatar)}" alt="Avatar">
                                 </div>
-                                <span>${escapeHTML(player.name)}</span>
+                                <span>${escapeHTML(name)}</span>
                             </div>
                         </td>
-                        <td>${escapeHTML(player.studentId)}</td>
-                        <td>${player.totalScore} pts</td>
+                        <td>${escapeHTML(studentId)}</td>
+                        <td>${totalScore} pts</td>
                     </tr>
                 `;
                 rankCounter++;
@@ -161,4 +155,3 @@ try {
 </script>
 </body>
 </html>
-

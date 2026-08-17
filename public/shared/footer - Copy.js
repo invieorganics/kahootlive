@@ -260,6 +260,15 @@ function injectFooterStyles() {
         body {
             padding-bottom: calc(70px + env(safe-area-inset-bottom));
         }
+
+        @media (min-width: 768px) {
+            .kh-mobile-footer {
+                display: none;
+            }
+            body {
+                padding-bottom: 0;
+            }
+        }
     `;
 
     document.head.appendChild(style);

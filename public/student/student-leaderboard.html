@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,7 +9,7 @@
 <style>
 *{box-sizing:border-box}
 html,body{margin:0;padding:0;width:100%;min-height:100%}
-body{min-height:100vh;display:flex;flex-direction:column;background:#f8fafc;font-family:Roboto,Arial,sans-serif;color:#1e293b}
+body{min-height:100vh;display:flex;flex-direction:column;background:#f8fafc;font-family:Roboto,Arial,sans-serif;color:#1e293b;-webkit-text-size-adjust:100%}
 
 .leaderboard-wrapper{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;max-width:480px;width:100%;margin:0 auto;padding:24px 16px;gap:20px}
 
@@ -56,7 +57,7 @@ console.log("🔥 LEADERBOARD SCRIPT STARTING...");
 
 try {
     const appCore = await import("../shared/app-core.js");
-    const { initAppCore } = appCore;
+    const { initAppCore, db, doc, getDoc } = appCore;
 
     const coreResult = initAppCore();
     if (coreResult instanceof Promise) {
@@ -64,22 +65,55 @@ try {
     }
     console.log("SUCCESS: app-core initialized successfully in leaderboard.");
 
-    // Preserve URL parameters (pin, name, id) if present, so switching pages maintains state
+    // Strict Authentication & Verification Check
     const urlParams = new URLSearchParams(window.location.search);
-    const queryString = urlParams.toString();
-
-    if (queryString) {
-        const kahootLink = document.getElementById("kahoot-lb-link");
-        const spellingLink = document.getElementById("spelling-lb-link");
-        
-        if (kahootLink) kahootLink.href = `student-kahoot-leaderboard.html?${queryString}`;
-        if (spellingLink) spellingLink.href = `student-spelling-leaderboard.html?${queryString}`;
+    let localSession = {};
+    
+    try {
+        localSession = JSON.parse(localStorage.getItem("kahootlive_student") || "{}");
+    } catch (e) {
+        localSession = {};
     }
+
+    const activePin = urlParams.get("pin") || localSession.pin;
+    const activeId = urlParams.get("id") || localSession.studentId;
+    const activeName = urlParams.get("name") || localSession.name;
+
+    // If missing credentials or unverified, force redirect to login and clear bad cache
+    if (!activePin || !activeId || !activeName) {
+        console.warn("Unverified or missing session credentials. Redirecting to login...");
+        localStorage.removeItem("kahootlive_student");
+        window.location.href = "student-login.html";
+        throw new Error("Unauthorized access.");
+    }
+
+    // Verify session existence in Firestore to ensure it's still active
+    const sessionRef = doc(db, "game_sessions", activePin);
+    const sessionSnap = await getDoc(sessionRef);
+
+    if (!sessionSnap.exists()) {
+        console.warn("Game session does not exist or was closed. Redirecting to login...");
+        localStorage.removeItem("kahootlive_student");
+        window.location.href = "student-login.html";
+        throw new Error("Session expired or closed.");
+    }
+
+    // Ensure query string is consistently attached to leaderboard links
+    const canonicalQuery = `pin=${encodeURIComponent(activePin)}&name=${encodeURIComponent(activeName)}&id=${encodeURIComponent(activeId)}`;
+    
+    const kahootLink = document.getElementById("kahoot-lb-link");
+    const spellingLink = document.getElementById("spelling-lb-link");
+    
+    if (kahootLink) kahootLink.href = `student-kahoot-leaderboard.html?${canonicalQuery}`;
+    if (spellingLink) spellingLink.href = `student-spelling-leaderboard.html?${canonicalQuery}`;
 
 } catch (e) {
     console.error("FATAL SCRIPT CRASH in Leaderboard Hub:", e.message);
+    if (!window.location.href.includes("student-login.html")) {
+        localStorage.removeItem("kahootlive_student");
+        window.location.href = "student-login.html";
+    }
 }
 </script>
 </body>
 </html>
-

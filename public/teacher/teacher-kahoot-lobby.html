@@ -1,3 +1,4 @@
+
 <!DOCTYPE html> 
 <html lang="en"> 
 <head> 
@@ -12,39 +13,53 @@
 html,body{margin:0;padding:0;width:100%;min-height:100%} 
 body{min-height:100vh;display:flex;flex-direction:column;background:#f8fafc;font-family:Roboto,Arial,sans-serif;color:#1e293b} 
 .lobby-wrapper{flex:1;display:flex;flex-direction:column;padding:24px 16px;max-width:800px;width:100%;margin:0 auto} 
-.lobby-header{text-align:center;margin-bottom:20px} 
-.lobby-header h1{margin:0 0 6px;font-size:24px;font-weight:800;color:#2563eb} 
-.lobby-header p{margin:0;color:#64748b;font-size:14px;font-weight:600} 
-.lobby-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px} 
-@media(max-width:650px){.lobby-grid{grid-template-columns:1fr}} 
+.lobby-header{text-align:center;margin-bottom:16px} 
+.lobby-header h1{margin:0 0 4px;font-size:22px;font-weight:800;color:#2563eb} 
+.lobby-header p{margin:0;color:#64748b;font-size:13px;font-weight:600} 
+
+/* Layout structure: PIN on top, Big QR code center below it */
+.top-section{display:flex;flex-direction:column;gap:16px;margin-bottom:20px}
 .lobby-card{background:#ffffff;border-radius:20px;padding:20px;box-shadow:0 8px 24px rgba(0,0,0,.06);border:1px solid #e2e8f0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center} 
 
 /* PIN Display Card */ 
-.pin-display-box{width:100%;background:#eff6ff;border:2px dashed #3b82f6;border-radius:16px;padding:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px} 
-.pin-title{font-size:14px;font-weight:700;color:#1e40af;text-transform:uppercase;letter-spacing:1px} 
-.pin-number{font-size:42px;font-weight:900;color:#1d4ed8;letter-spacing:2px} 
+.pin-display-box{width:100%;background:#eff6ff;border:2px dashed #3b82f6;border-radius:16px;padding:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px} 
+.pin-title{font-size:13px;font-weight:700;color:#1e40af;text-transform:uppercase;letter-spacing:1px} 
+.pin-number{font-size:38px;font-weight:900;color:#1d4ed8;letter-spacing:2px} 
 
-/* QR Code Box */ 
-.qr-container{background:#fff;padding:12px;border-radius:12px;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;margin-bottom:12px} 
+/* QR Code Box & Responsive Scaling */ 
+.qr-container{background:#fff;padding:12px;border-radius:12px;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;margin-bottom:10px} 
+.qr-container canvas, .qr-container img{display:block;height:auto !important;max-width:100% !important}
+
+/* Mobile default sizing */
+.qr-container img, .qr-container canvas { width: 180px !important; height: 180px !important; }
+
+/* Desktop larger sizing so students far away can scan it easily */
+@media(min-width: 768px) {
+    .qr-container img, .qr-container canvas { width: 280px !important; height: 280px !important; }
+}
+
 .qr-instruction{font-size:13px;font-weight:600;color:#64748b;line-height:1.4} 
-.qr-url-text{margin-top:8px;font-size:12px;font-weight:700;color:#2563eb;word-break:break-all;background:#eff6ff;padding:6px 10px;border-radius:8px;border:1px solid #bfdbfe;width:100%}
+.qr-url-text{margin-top:6px;font-size:11px;font-weight:700;color:#2563eb;word-break:break-all;background:#eff6ff;padding:6px 10px;border-radius:8px;border:1px solid #bfdbfe;width:100%;max-width:500px}
 
-/* Players List Section */ 
-.players-section{background:#ffffff;border-radius:20px;padding:20px;box-shadow:0 8px 24px rgba(0,0,0,.06);border:1px solid #e2e8f0;display:flex;flex-direction:column;flex:1;min-height:220px;margin-bottom:24px} 
-.players-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;border-bottom:2px solid #f1f5f9;padding-bottom:10px} 
-.players-title{font-size:16px;font-weight:800;color:#0f172a} 
-.players-count-badge{background:#e0e7ff;color:#3730a3;padding:4px 12px;border-radius:20px;font-size:14px;font-weight:800} 
-.players-grid{display:flex;flex-wrap:wrap;gap:10px;align-content:flex-start;max-height:250px;overflow-y:auto;padding:4px} 
-.player-chip{background:#f1f5f9;color:#334155;padding:8px 16px;border-radius:20px;font-size:14px;font-weight:700;border:1px solid #cbd5e1;animation:fadeIn .3s ease} 
+/* Players List Section - Half Size */ 
+.players-section{background:#ffffff;border-radius:20px;padding:16px;box-shadow:0 8px 24px rgba(0,0,0,.06);border:1px solid #e2e8f0;display:flex;flex-direction:column;min-height:140px;max-height:180px;margin-bottom:20px} 
+.players-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;border-bottom:2px solid #f1f5f9;padding-bottom:8px} 
+.players-title{font-size:15px;font-weight:800;color:#0f172a} 
+.players-count-badge{background:#e0e7ff;color:#3730a3;padding:2px 10px;border-radius:20px;font-size:13px;font-weight:800} 
+.players-grid{display:flex;flex-wrap:wrap;gap:8px;align-content:flex-start;max-height:100px;overflow-y:auto;padding:2px} 
+.player-chip{background:#f1f5f9;color:#334155;padding:6px 12px;border-radius:20px;font-size:13px;font-weight:700;border:1px solid #cbd5e1;animation:fadeIn .3s ease} 
+
+/* Action Buttons Container */
+.action-buttons{display:flex;flex-direction:column;gap:10px;margin-bottom:10px}
 
 /* Open Game Players Window Button */ 
-.open-players-btn{width:100%;border:0;border-radius:14px;padding:14px;background:#4f46e5;color:#fff;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 4px 12px rgba(79,70,229,0.25);text-align:center;margin-bottom:14px;transition:transform 0.1s} 
+.open-players-btn{width:100%;border:0;border-radius:14px;padding:12px;background:#4f46e5;color:#fff;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 4px 12px rgba(79,70,229,0.25);text-align:center;transition:transform 0.1s} 
 .open-players-btn:active{transform:scale(.98)} 
 
-.start-game-btn{width:100%;border:0;border-radius:14px;padding:16px;background:#16a34a;color:#fff;font-family:inherit;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(22,163,74,0.3);text-align:center;transition:transform 0.1s} 
+.start-game-btn{width:100%;border:0;border-radius:14px;padding:14px;background:#16a34a;color:#fff;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(22,163,74,0.3);text-align:center;transition:transform 0.1s} 
 .start-game-btn:active{transform:scale(.98)} 
 
-.status-message{display:none;padding:14px;border-radius:12px;font-size:14px;font-weight:700;text-align:center;margin-bottom:16px} 
+.status-message{display:none;padding:12px;border-radius:12px;font-size:13px;font-weight:700;text-align:center;margin-bottom:14px} 
 .status-message.error{display:block;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5} 
 .status-message.info{display:block;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe} 
 
@@ -61,38 +76,40 @@ body{min-height:100vh;display:flex;flex-direction:column;background:#f8fafc;font
 
 <div id="status-box" class="status-message"></div> 
 
-<div class="lobby-grid"> 
-<!-- Left Box: Game PIN Display --> 
-<div class="lobby-card"> 
-<div class="pin-display-box"> 
-<span class="pin-title">Join at student login</span> 
-<span id="pin-value" class="pin-number">------</span> 
-</div> 
-</div> 
+<!-- Top Section: PIN first, then Big Centered QR Code -->
+<div class="top-section">
+    <!-- Game PIN Display Card --> 
+    <div class="lobby-card"> 
+        <div class="pin-display-box"> 
+            <span class="pin-title">Join at student login</span> 
+            <span id="pin-value" class="pin-number">------</span> 
+        </div> 
+    </div> 
 
-<!-- Right Box: Static QR Code and URL --> 
-<div class="lobby-card"> 
-<div id="qrcode" class="qr-container"></div> 
-<span class="qr-instruction">Scan QR code or open link below to join:</span> 
-<div id="qr-url-display" class="qr-url-text">Loading URL...</div>
-</div> 
-</div> 
+    <!-- Static QR Code and URL Card (Centered & Big) --> 
+    <div class="lobby-card"> 
+        <div id="qrcode" class="qr-container"></div> 
+        <span class="qr-instruction">Scan QR code or open link below to join:</span> 
+        <div id="qr-url-display" class="qr-url-text">Loading URL...</div>
+    </div> 
+</div>
 
-<!-- Players Connected Section (Realtime Live View on Lobby) --> 
+<!-- Players Connected Section (Half Size Compact View) --> 
 <div class="players-section"> 
-<div class="players-header"> 
-<span class="players-title">Joined Players</span> 
-<span id="player-count" class="players-count-badge">0</span> 
-</div> 
-<div id="players-container" class="players-grid"> 
-<span style="color:#94a3b8;font-size:14px;font-weight:600;padding:10px;">Waiting for players to join...</span> 
-</div> 
+    <div class="players-header"> 
+        <span class="players-title">Joined Players</span> 
+        <span id="player-count" class="players-count-badge">0</span> 
+    </div> 
+    <div id="players-container" class="players-grid"> 
+        <span style="color:#94a3b8;font-size:13px;font-weight:600;padding:6px;">Waiting for players to join...</span> 
+    </div> 
 </div> 
 
-<!-- Open Active Game Players Window Button --> 
-<button type="button" id="open-players-win-btn" class="open-players-btn">📋 Open Full Leaderboard / Players Window</button>
-
-<button type="button" id="start-game-btn" class="start-game-btn">🎮 Start Game Now</button> 
+<!-- Action Buttons -->
+<div class="action-buttons">
+    <button type="button" id="open-players-win-btn" class="open-players-btn">📋 Open Full Leaderboard / Players Window</button>
+    <button type="button" id="start-game-btn" class="start-game-btn">🎮 Start Game Now</button> 
+</div>
 </main> 
 
 <script type="module"> 
@@ -101,6 +118,7 @@ import {
     requireTeacher, 
     db, 
     doc, 
+    collection, 
     onSnapshot 
 } from "../shared/app-core.js";
 
@@ -138,14 +156,15 @@ try {
         headerGradeName.textContent = `Grade: ${gradeName} — Waiting Room`; 
     } 
 
-    // Generate Static QR code pointing to student-login.html using current host URL 
-    const studentLoginUrl = `${window.location.origin}/student/student-login.html`; 
+    const studentLoginUrl = `${window.location.origin}/public/student/student-login.html?pin=${encodeURIComponent(filePin)}`; 
     qrUrlDisplayEl.textContent = studentLoginUrl;
 
-    new QRCode(document.getElementById("qrcode"), { 
+    const qrContainer = document.getElementById("qrcode");
+    qrContainer.innerHTML = "";
+    new QRCode(qrContainer, { 
         text: studentLoginUrl, 
-        width: 140, 
-        height: 140, 
+        width: 280, 
+        height: 280, 
         colorDark: "#0f172a", 
         colorLight: "#ffffff", 
         correctLevel: QRCode.CorrectLevel.H 
@@ -154,33 +173,36 @@ try {
     if (!filePin) { 
         showStatus("Missing game PIN in URL parameters.", "error"); 
     } else { 
-        // Real-time listener for game session and players collection/array if stored inside session or subcollection 
         onSnapshot(doc(db, "game_sessions", filePin), (docSnap) => { 
             if (docSnap.exists()) { 
                 const data = docSnap.data(); 
-                // Render joined players if stored as an array or map inside session document 
-                const players = data.players || []; 
-                
-                playerCountEl.textContent = Array.isArray(players) ? players.length : Object.keys(players).length; 
-                
-                let playerListArray = Array.isArray(players) ? players : Object.values(players); 
-                
-                if (playerListArray.length > 0) { 
-                    playersContainer.innerHTML = ""; 
-                    playerListArray.forEach(player => { 
-                        const chip = document.createElement("div"); 
-                        chip.className = "player-chip"; 
-                        chip.textContent = typeof player === 'string' ? player : (player.name || player.username || "Player"); 
-                        playersContainer.appendChild(chip); 
-                    }); 
-                } else { 
-                    playersContainer.innerHTML = '<span style="color:#94a3b8;font-size:14px;font-weight:600;padding:10px;">Waiting for players to join...</span>'; 
-                } 
+                if (data.fileName || data.quizTitle || data.name) {
+                    headerQuizName.textContent = data.fileName || data.quizTitle || data.name;
+                }
             } 
         }); 
+
+        const scoresColRef = collection(db, "game_sessions", filePin, "scores");
+        onSnapshot(scoresColRef, (snapshot) => {
+            playerCountEl.textContent = snapshot.size;
+
+            if (!snapshot.empty) {
+                playersContainer.innerHTML = "";
+                snapshot.forEach((docSnap) => {
+                    const playerData = docSnap.data();
+                    const playerName = playerData.name || "Unknown";
+
+                    const chip = document.createElement("div");
+                    chip.className = "player-chip";
+                    chip.textContent = playerName;
+                    playersContainer.appendChild(chip);
+                });
+            } else {
+                playersContainer.innerHTML = '<span style="color:#94a3b8;font-size:13px;font-weight:600;padding:6px;">Waiting for players to join...</span>';
+            }
+        });
     } 
 
-    // Open game-players.html in a new window/tab passing the current PIN
     openPlayersWinBtn.addEventListener("click", () => {
         if (!filePin) {
             alert("Game PIN is missing.");
@@ -191,7 +213,6 @@ try {
 
     startGameBtn.addEventListener("click", () => { 
         if (!filePin) return; 
-        // Trigger game start or redirect to teacher game question controller page 
         window.location.href = `teacher-kahoot-play.html?pin=${encodeURIComponent(filePin)}&name=${encodeURIComponent(fileName)}&gradename=${encodeURIComponent(gradeName)}`; 
     }); 
 
@@ -206,4 +227,3 @@ try {
 </script> 
 </body> 
 </html>
-
